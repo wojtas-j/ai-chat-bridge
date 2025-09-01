@@ -1,6 +1,6 @@
 # Custom project files
 .env.dev
-
+logs/
 
 # Backend (Java, Spring, Gradle, Docker, InteliJ) & Frontend
 

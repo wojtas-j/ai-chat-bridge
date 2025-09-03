@@ -17,3 +17,7 @@ openai:
   base-url: http://localhost:8089
   model: gpt-4o-mini
   max-tokens: 100
+discord:
+  bot-token: "test-token"
+  bot-prefix: "!ai "
+  bot-enabled: false

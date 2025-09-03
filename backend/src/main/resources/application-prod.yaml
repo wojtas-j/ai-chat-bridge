@@ -19,3 +19,7 @@ openai:
   base-url: https://api.openai.com/v1
   model: gpt-4o-mini
   max-tokens: 100
+discord:
+  bot-token: ${DISCORD_BOT_TOKEN}
+  bot-prefix: "!ai "
+  bot-enabled: true

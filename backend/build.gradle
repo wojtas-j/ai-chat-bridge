@@ -33,6 +33,8 @@ dependencies {
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.11'
 	implementation 'org.springframework:spring-webflux:6.2.10'
 	implementation 'org.flywaydb:flyway-core:11.11.2'
+	implementation 'com.discord4j:discord4j-core:3.3.0-RC3'
+	implementation 'io.projectreactor:reactor-core:3.7.9'
 
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
@@ -50,10 +52,14 @@ dependencies {
 	testImplementation 'org.junit.jupiter:junit-jupiter:5.13.4'
 	testImplementation 'org.assertj:assertj-core:3.26.3'
 	testImplementation 'com.github.tomakehurst:wiremock-standalone:3.0.1'
+	testImplementation 'io.projectreactor:reactor-test:3.7.9'
+	testImplementation 'org.mockito:mockito-core:5.19.0'
+	testImplementation 'org.mockito:mockito-junit-jupiter:5.19.0'
 
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+	jvmArgs '-javaagent:' + configurations.testRuntimeClasspath.filter { it.name.contains('byte-buddy-agent') }.singleFile
 }

@@ -115,4 +115,19 @@ public class DiscordBotServiceTest {
         verify(openAIService, never()).sendMessageToOpenAI(any(MessageEntity.class));
         verify(messageChannel, never()).createMessage(anyString());
     }
+
+    @Test
+    void shouldHandleOpenAIError() {
+        when(message.getContent()).thenReturn("!ai Hello!");
+        when(messageCreateEvent.getMessage()).thenReturn(message);
+        when(message.getChannel()).thenReturn(Mono.just(messageChannel));
+        when(messageChannel.createMessage(anyString())).thenAnswer(inv -> MessageCreateMono.of(messageChannel).withContent(inv.getArgument(0, String.class)));
+        when(messageChannel.createMessage(any(MessageCreateSpec.class))).thenReturn(Mono.just(mock(Message.class)));
+        when(messageRepository.save(any(MessageEntity.class))).thenReturn(new MessageEntity());
+        when(openAIService.sendMessageToOpenAI(any())).thenThrow(new RuntimeException("OpenAI error"));
+        Mono<Message> result = discordBotService.handleMessageCreateEvent(messageCreateEvent);
+        StepVerifier.create(result)
+                .expectErrorMatches(e -> e instanceof RuntimeException && e.getMessage().equals("OpenAI error"))
+                .verify();
+    }
 }

@@ -33,7 +33,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 )
 @ExtendWith(MockitoExtension.class)
 public class OpenAIServiceTest {
+
     private WireMockServer wireMockServer;
+
     @Autowired
     private OpenAIService openAIService;
 
@@ -53,18 +55,21 @@ public class OpenAIServiceTest {
      */
     @Test
     void shouldSendMessageToOpenAI() {
+        // Arrange
         wireMockServer.stubFor(post(urlEqualTo("/responses"))
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withHeader("Content-Type", "application/json")
                         .withBody("{\"output\":[{\"content\":[{\"text\":\"Hi, hello!\"}]}]}")));
 
+        // Act
         MessageEntity input = new MessageEntity();
         input.setContent("Hello!");
         input.setCreatedAt(LocalDateTime.now());
 
         MessageEntity result = openAIService.sendMessageToOpenAI(input);
 
+        // Assert
         assertThat(result.getContent()).isEqualTo("Hi, hello!");
         assertThat(result.getCreatedAt()).isNotNull();
     }
@@ -74,18 +79,21 @@ public class OpenAIServiceTest {
      */
     @Test
     void shouldHandleOpenAIError() {
+        // Arrange
         wireMockServer.stubFor(post(urlEqualTo("/responses"))
                 .willReturn(aResponse()
                         .withStatus(500)
                         .withHeader("Content-Type", "application/json")
                         .withBody("{\"error\":\"Internal Server Error\"}")));
 
+        // Act
         MessageEntity input = new MessageEntity();
         input.setContent("Hello!");
         input.setCreatedAt(LocalDateTime.now());
 
         MessageEntity result = openAIService.sendMessageToOpenAI(input);
 
+        // Assert
         assertThat(result.getContent()).startsWith("Error");
         assertThat(result.getCreatedAt()).isNotNull();
     }

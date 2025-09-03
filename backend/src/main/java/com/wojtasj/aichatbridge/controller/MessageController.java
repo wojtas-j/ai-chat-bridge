@@ -16,6 +16,7 @@ import java.util.List;
 @RequestMapping("api/messages")
 @Slf4j
 public class MessageController {
+
     private final MessageRepository repository;
     private final OpenAIService openAIService;
 

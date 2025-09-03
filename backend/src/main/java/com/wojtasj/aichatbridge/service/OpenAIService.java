@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 @Service
 @Slf4j
 public class OpenAIService {
+
     private final WebClient webClient;
     private final String model;
     private final int maxTokens;

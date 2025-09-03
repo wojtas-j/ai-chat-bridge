@@ -31,11 +31,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @ExtendWith(MockitoExtension.class)
 public class MessageControllerTest {
+
     private MockMvc mockMvc;
+
     @Mock
     private MessageRepository repository;
+
     @Mock
     private OpenAIService openAIService;
+
     @InjectMocks
     private MessageController messageController;
 
@@ -53,6 +57,7 @@ public class MessageControllerTest {
      */
     @Test
     void shouldGetAllMessages() throws Exception {
+        // Arrange
         MessageEntity message = new MessageEntity();
         message.setId(1L);
         message.setContent("Test message");
@@ -60,6 +65,7 @@ public class MessageControllerTest {
 
         when(repository.findAll()).thenReturn(List.of(message));
 
+        // Act & Assert
         mockMvc.perform(get("/api/messages")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -71,12 +77,14 @@ public class MessageControllerTest {
      */
     @Test
     void shouldCreateMessage() throws Exception {
+        // Arrange
         MessageEntity message = new MessageEntity();
         message.setContent("Test message");
         message.setCreatedAt(LocalDateTime.now());
 
         when(repository.save(any(MessageEntity.class))).thenReturn(message);
 
+        // Act & Assert
         mockMvc.perform(post("/api/messages")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(message)))
@@ -89,6 +97,7 @@ public class MessageControllerTest {
      */
     @Test
     void shouldSendToOpenAI() throws Exception {
+        // Arrange
         MessageEntity input = new MessageEntity();
         input.setContent("Hello!");
         input.setCreatedAt(LocalDateTime.now());
@@ -100,6 +109,7 @@ public class MessageControllerTest {
         when(repository.save(any(MessageEntity.class))).thenReturn(input, response);
         when(openAIService.sendMessageToOpenAI(any(MessageEntity.class))).thenReturn(response);
 
+        // Act & Assert
         mockMvc.perform(post("/api/messages/openai")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(input)))

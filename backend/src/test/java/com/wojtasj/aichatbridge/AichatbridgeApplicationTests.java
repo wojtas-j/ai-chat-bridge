@@ -2,14 +2,19 @@ package com.wojtasj.aichatbridge;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+import org.springframework.test.context.ActiveProfiles;
 
+/**
+ * Tests for application context loading.
+ */
 @SpringBootTest
-@EnableJpaAuditing
+@ActiveProfiles("test")
 class AichatbridgeApplicationTests {
 
+	/**
+	 * Tests if the application context loads successfully.
+	 */
 	@Test
 	void contextLoads() {
 	}
-
 }

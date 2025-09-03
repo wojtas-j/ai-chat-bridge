@@ -16,3 +16,8 @@ spring:
     baseline-on-migrate: true
 server:
   port: 8080
+openai:
+  api-key: ${OPENAI_API_KEY}
+  base-url: https://api.openai.com/v1
+  model: gpt-4o-mini
+  max-tokens: 100

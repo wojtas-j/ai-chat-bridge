@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:17.6-alpine:///aichatbridge?TC_DAEMON=true
+    username: devuser
+    password: devpass
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate.format_sql: true
+  flyway:
+    enabled: false
+openai:
+  api-key: test-key
+  base-url: http://localhost:8089
+  model: gpt-4o-mini
+  max-tokens: 100

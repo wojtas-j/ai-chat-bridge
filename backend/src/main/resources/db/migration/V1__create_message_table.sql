@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS message (
+    id BIGSERIAL PRIMARY KEY,
+    content VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL
+);

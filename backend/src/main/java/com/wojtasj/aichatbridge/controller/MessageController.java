@@ -1,19 +1,23 @@
 package com.wojtasj.aichatbridge.controller;
 
+import com.wojtasj.aichatbridge.dto.MessageDTO;
 import com.wojtasj.aichatbridge.entity.MessageEntity;
 import com.wojtasj.aichatbridge.repository.MessageRepository;
 import com.wojtasj.aichatbridge.service.OpenAIService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
 
 /**
- * REST controller for managing messages in the AI Chat Bridge application.
+ * Controller for handling message-related requests.
  */
 @RestController
-@RequestMapping("api/messages")
+@RequestMapping("/api/messages")
 @Slf4j
 public class MessageController {
 
@@ -28,39 +32,43 @@ public class MessageController {
     /**
      * Retrieves all messages from the database.
      *
-     * @return List of all messages.
+     * @return A list of all messages.
      */
     @GetMapping
     public List<MessageEntity> getAllMessages() {
-        log.info("Fetching all messages");
         return repository.findAll();
     }
 
     /**
-     * Creates a new message in the database.
+     * Creates a new message and saves it to the database.
      *
-     * @param message The message entity to create.
-     * @return The created message entity.
+     * @param messageDTO The message DTO containing the content to save.
+     * @return The saved message entity.
      */
     @PostMapping
-    @Transactional
-    public MessageEntity createMessage(@RequestBody MessageEntity message) {
-        log.debug("Creating message: {}", message.getContent());
+    public MessageEntity createMessage(@RequestBody MessageDTO messageDTO) {
+        MessageEntity message = new MessageEntity();
+        message.setContent(messageDTO.content());
         return repository.save(message);
     }
 
     /**
      * Sends a message to OpenAI and saves the response in the database.
      *
-     * @param message The message entity to send to OpenAI.
-     * @return The AI-generated response as a MessageEntity.
+     * @param messageDTO The message DTO containing the content to send to OpenAI.
+     * @return A Mono containing the AI-generated response as a MessageEntity.
      */
     @PostMapping("/openai")
-    @Transactional
-    public MessageEntity sendToOpenAI(@RequestBody MessageEntity message) {
-        log.info("Processing message with OpenAI: {}", message.getContent());
-        MessageEntity savedMessage = repository.save(message);
-        MessageEntity response = openAIService.sendMessageToOpenAI(savedMessage);
-        return repository.save(response);
+    public Mono<MessageEntity> sendToOpenAI(@RequestBody MessageDTO messageDTO) {
+        log.info("Processing message with OpenAI: {}", messageDTO.content());
+        MessageEntity message = new MessageEntity();
+        message.setContent(messageDTO.content());
+        return Mono.just(message)
+                .flatMap(m -> Mono.fromCallable(() -> repository.save(m))
+                        .subscribeOn(Schedulers.boundedElastic()))
+                .flatMap(openAIService::sendMessageToOpenAI)
+                .flatMap(response -> Mono.fromCallable(() -> repository.save(response))
+                        .subscribeOn(Schedulers.boundedElastic()))
+                .onErrorMap(e -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to process OpenAI request", e));
     }
 }

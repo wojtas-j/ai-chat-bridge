@@ -1,15 +1,16 @@
 package com.wojtasj.aichatbridge.service;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
-import com.wojtasj.aichatbridge.configuration.OpenAIProperties;
 import com.wojtasj.aichatbridge.entity.MessageEntity;
+import com.wojtasj.aichatbridge.exception.OpenAIServiceException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.time.LocalDateTime;
 
@@ -20,19 +21,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Tests for OpenAIService.
  */
-@SpringBootTest(
-        classes = {OpenAIService.class, OpenAIProperties.class},
-        properties = {
-                "openai.api-key=test-key",
-                "openai.base-url=http://localhost:8089",
-                "openai.model=gpt-4o-mini",
-                "openai.max-tokens=100",
-                "spring.jpa.hibernate.ddl-auto=none",
-                "spring.flyway.enabled=false"
-        }
-)
-@ExtendWith(MockitoExtension.class)
-public class OpenAIServiceTest {
+@SpringBootTest
+@ActiveProfiles("test")
+class OpenAIServiceTest {
+
+    private static final String WIREMOCK_URL = "/responses";
+    private static final int WIREMOCK_PORT = 8089;
 
     private WireMockServer wireMockServer;
 
@@ -41,13 +35,16 @@ public class OpenAIServiceTest {
 
     @BeforeEach
     void setUp() {
-        wireMockServer = new WireMockServer(options().port(8089));
+        wireMockServer = new WireMockServer(options().port(WIREMOCK_PORT));
         wireMockServer.start();
+        wireMockServer.resetAll();
     }
 
     @AfterEach
     void tearDown() {
-        wireMockServer.stop();
+        if (wireMockServer != null && wireMockServer.isRunning()) {
+            wireMockServer.stop();
+        }
     }
 
     /**
@@ -56,22 +53,25 @@ public class OpenAIServiceTest {
     @Test
     void shouldSendMessageToOpenAI() {
         // Arrange
-        wireMockServer.stubFor(post(urlEqualTo("/responses"))
+        wireMockServer.stubFor(post(urlEqualTo(WIREMOCK_URL))
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withHeader("Content-Type", "application/json")
                         .withBody("{\"output\":[{\"content\":[{\"text\":\"Hi, hello!\"}]}]}")));
 
-        // Act
-        MessageEntity input = new MessageEntity();
-        input.setContent("Hello!");
-        input.setCreatedAt(LocalDateTime.now());
+        MessageEntity input = createMessageEntity();
 
-        MessageEntity result = openAIService.sendMessageToOpenAI(input);
+        // Act
+        Mono<MessageEntity> result = openAIService.sendMessageToOpenAI(input);
 
         // Assert
-        assertThat(result.getContent()).isEqualTo("Hi, hello!");
-        assertThat(result.getCreatedAt()).isNotNull();
+        StepVerifier.create(result)
+                .assertNext(response -> {
+                    assertThat(response.getContent()).isEqualTo("Hi, hello!");
+                    assertThat(response.getCreatedAt()).isNotNull();
+                })
+                .expectComplete()
+                .verify();
     }
 
     /**
@@ -80,21 +80,54 @@ public class OpenAIServiceTest {
     @Test
     void shouldHandleOpenAIError() {
         // Arrange
-        wireMockServer.stubFor(post(urlEqualTo("/responses"))
+        wireMockServer.stubFor(post(urlEqualTo(WIREMOCK_URL))
+                .withRequestBody(containing("Hello"))
                 .willReturn(aResponse()
                         .withStatus(500)
                         .withHeader("Content-Type", "application/json")
                         .withBody("{\"error\":\"Internal Server Error\"}")));
 
-        // Act
-        MessageEntity input = new MessageEntity();
-        input.setContent("Hello!");
-        input.setCreatedAt(LocalDateTime.now());
+        MessageEntity input = createMessageEntity();
 
-        MessageEntity result = openAIService.sendMessageToOpenAI(input);
+        // Act
+        Mono<MessageEntity> result = openAIService.sendMessageToOpenAI(input);
 
         // Assert
-        assertThat(result.getContent()).startsWith("Error");
-        assertThat(result.getCreatedAt()).isNotNull();
+        StepVerifier.create(result)
+                .expectErrorMatches(e -> e instanceof OpenAIServiceException &&
+                        e.getMessage().contains("OpenAI API error: 500"))
+                .verify();
+    }
+
+    /**
+     * Tests handling invalid JSON response from OpenAI.
+     */
+    @Test
+    void shouldHandleInvalidJsonResponse() {
+        // Arrange
+        wireMockServer.stubFor(post(urlEqualTo(WIREMOCK_URL))
+                .withRequestBody(containing("Hello"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{")));
+
+        MessageEntity input = createMessageEntity();
+
+        // Act
+        Mono<MessageEntity> result = openAIService.sendMessageToOpenAI(input);
+
+        // Assert
+        StepVerifier.create(result)
+                .expectErrorMatches(e -> e instanceof OpenAIServiceException
+                        && e.getMessage().contains("Error parsing OpenAI response"))
+                .verify();
+    }
+
+    private MessageEntity createMessageEntity() {
+        MessageEntity entity = new MessageEntity();
+        entity.setContent("Hello!");
+        entity.setCreatedAt(LocalDateTime.now());
+        return entity;
     }
 }

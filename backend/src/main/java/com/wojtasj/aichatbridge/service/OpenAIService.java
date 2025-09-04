@@ -1,12 +1,15 @@
 package com.wojtasj.aichatbridge.service;
 
+import com.wojtasj.aichatbridge.configuration.OpenAIProperties;
 import com.wojtasj.aichatbridge.entity.MessageEntity;
+import com.wojtasj.aichatbridge.exception.OpenAIServiceException;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 
@@ -21,27 +24,25 @@ public class OpenAIService {
     private final String model;
     private final int maxTokens;
 
-    public OpenAIService(
-            @Value("${openai.api-key}") String apiKey,
-            @Value("${openai.base-url}") String baseUrl,
-            @Value("${openai.model}") String model,
-            @Value("${openai.max-tokens}") int maxTokens) {
-        this.model = model;
-        this.maxTokens = maxTokens;
+    public OpenAIService(OpenAIProperties properties) {
+        this.model = properties.getModel();
+        this.maxTokens = properties.getMaxTokens();
         this.webClient = WebClient.builder()
-                .baseUrl(baseUrl)
-                .defaultHeader("Authorization", "Bearer " + apiKey)
+                .baseUrl(properties.getBaseUrl())
+                .defaultHeader("Authorization", "Bearer " + properties.getApiKey())
                 .defaultHeader("Content-Type", "application/json")
                 .build();
+        log.info("XD: Initialized OpenAIService with baseUrl: {}, model: {}, maxTokens: {}",
+                properties.getBaseUrl(), model, maxTokens);
     }
 
     /**
      * Sends a message to OpenAI and returns the response as a MessageEntity.
      *
      * @param message The message entity containing the prompt to send.
-     * @return A new MessageEntity with the OpenAI response.
+     * @return A Mono containing the OpenAI response as a MessageEntity.
      */
-    public MessageEntity sendMessageToOpenAI(MessageEntity message) {
+    public Mono<MessageEntity> sendMessageToOpenAI(MessageEntity message) {
         log.info("Sending message to OpenAI: {}", message.getContent());
 
         JSONObject requestBody = new JSONObject();
@@ -55,28 +56,22 @@ public class OpenAIService {
         inputArray.put(userMessage);
         requestBody.put("input", inputArray);
 
-        try {
-            String response = webClient.post()
-                    .uri("/responses")
-                    .bodyValue(requestBody.toString())
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block();
-
-            String aiResponse = parseResponse(response);
-            log.debug("Received OpenAI response: {}", aiResponse);
-
-            MessageEntity responseEntity = new MessageEntity();
-            responseEntity.setContent(aiResponse);
-            responseEntity.setCreatedAt(LocalDateTime.now());
-            return responseEntity;
-        } catch (Exception e) {
-            log.error("Error calling OpenAI API: ", e);
-            MessageEntity errorResponse = new MessageEntity();
-            errorResponse.setContent("Error: " + e.getMessage());
-            errorResponse.setCreatedAt(LocalDateTime.now());
-            return errorResponse;
-        }
+        return webClient.post()
+                .uri("/responses")
+                .bodyValue(requestBody.toString())
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, response ->
+                        Mono.error(new OpenAIServiceException("OpenAI API error: " + response.statusCode())))
+                .bodyToMono(String.class)
+                .map(this::parseResponse)
+                .map(responseText -> {
+                    MessageEntity responseEntity = new MessageEntity();
+                    responseEntity.setContent(responseText);
+                    responseEntity.setCreatedAt(LocalDateTime.now());
+                    return responseEntity;
+                })
+                .onErrorMap(e -> e instanceof OpenAIServiceException ? e :
+                        new OpenAIServiceException("Failed to call OpenAI API", e));
     }
 
     /**
@@ -97,10 +92,9 @@ public class OpenAIService {
                     return firstContent.getString("text");
                 }
             }
-            return "No content in response";
+            throw new OpenAIServiceException("No content in response");
         } catch (Exception e) {
-            log.error("Error parsing OpenAI response: ", e);
-            return "Error parsing response";
+            throw new OpenAIServiceException("Error parsing OpenAI response", e);
         }
     }
 }

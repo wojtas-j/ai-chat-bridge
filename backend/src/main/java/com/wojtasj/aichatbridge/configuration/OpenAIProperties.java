@@ -10,9 +10,10 @@ import org.springframework.stereotype.Component;
  * <p>Properties include:</p>
  * <ul>
  *     <li>{@link #apiKey} - the API key used to authenticate with the OpenAI API</li>
- *     <li>{@link #baseUrl} - the base URL for API requests (e.g., <a href="https://api.openai.com">...</a>)</li>
+ *     <li>{@link #baseUrl} - the base URL for API requests (e.g., <a href="https://api.openai.com">https://api.openai.com</a>)</li>
  *     <li>{@link #model} - the default model to use for requests (e.g., "gpt-4")</li>
- *     <li>{@link #maxTokens} - the maximum number of tokens </li>
+ *     <li>{@link #maxTokens} - the maximum number of tokens for a single request</li>
+ *     <li>{@link #chatCompletionsEndpoint} - the endpoint for chat completions (default: "/chat/completions")</li>
  * </ul>
  */
 @Component
@@ -24,4 +25,5 @@ public class OpenAIProperties {
     private String baseUrl;
     private String model;
     private int maxTokens;
+    private String chatCompletionsEndpoint = "/chat/completions";
 }

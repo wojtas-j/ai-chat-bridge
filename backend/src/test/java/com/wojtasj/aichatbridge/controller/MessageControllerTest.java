@@ -2,13 +2,12 @@ package com.wojtasj.aichatbridge.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.wojtasj.aichatbridge.dto.MessageDTO;
 import com.wojtasj.aichatbridge.entity.MessageEntity;
 import com.wojtasj.aichatbridge.exception.GlobalExceptionHandler;
 import com.wojtasj.aichatbridge.repository.MessageRepository;
-import com.wojtasj.aichatbridge.service.OpenAIService;
+import com.wojtasj.aichatbridge.service.OpenAIServiceImpl;
 import com.wojtasj.aichatbridge.exception.OpenAIServiceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,24 +15,34 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
-import org.springframework.http.codec.json.Jackson2JsonDecoder;
-import org.springframework.test.web.reactive.server.WebTestClient;
-import reactor.core.publisher.Mono;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * Tests for MessageController.
+ * Tests for {@link MessageController}.
  */
 @ExtendWith(MockitoExtension.class)
+@ActiveProfiles("test")
 class MessageControllerTest {
 
     private static final String MESSAGES_URL = "/api/messages";
@@ -42,13 +51,13 @@ class MessageControllerTest {
     private static final String HELLO_CONTENT = "Hello!";
     private static final String AI_RESPONSE = "Hi, hello!";
 
-    private WebTestClient webTestClient;
+    private MockMvc mockMvc;
 
     @Mock
     private MessageRepository repository;
 
     @Mock
-    private OpenAIService openAIService;
+    private OpenAIServiceImpl openAIService;
 
     @InjectMocks
     private MessageController messageController;
@@ -56,43 +65,69 @@ class MessageControllerTest {
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
+            .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
 
     @BeforeEach
     void setUp() {
-        messageController = new MessageController(repository, openAIService);
-
-        webTestClient = WebTestClient.bindToController(messageController)
-                .controllerAdvice(new GlobalExceptionHandler())
-                .httpMessageCodecs(configurer -> configurer.defaultCodecs()
-                        .jackson2JsonDecoder(new Jackson2JsonDecoder(objectMapper, MediaType.APPLICATION_JSON)))
+        mockMvc = MockMvcBuilders
+                .standaloneSetup(messageController)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
+                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .build();
     }
 
     /**
-     * Tests retrieving all messages.
+     * Tests retrieving an empty page when no messages exist.
      */
     @Test
-    void shouldGetAllMessages() {
+    void shouldReturnEmptyListWhenNoMessages() throws Exception {
         // Arrange
-        MessageEntity message = createMessageEntity(TEST_CONTENT);
-        message.setId(1L);
-        when(repository.findAll()).thenReturn(List.of(message));
+        Pageable pageable = PageRequest.of(0, 20, Sort.by("createdAt").descending());
+        when(repository.findAll(pageable)).thenReturn(new PageImpl<>(Collections.emptyList(), pageable, 0));
 
         // Act & Assert
-        webTestClient.get()
-                .uri(MESSAGES_URL)
-                .accept(MediaType.APPLICATION_JSON)
-                .exchange()
-                .expectStatus().isOk()
-                .expectBodyList(MessageEntity.class)
-                .hasSize(1)
-                .value(messages -> {
-                    MessageEntity entity = messages.getFirst();
-                    assertThat(entity.getContent(), equalTo(TEST_CONTENT));
-                    assertThat(entity.getId(), equalTo(1L));
-                    assertThat(entity.getCreatedAt(), notNullValue());
-                });
+        mockMvc.perform(get(MESSAGES_URL)
+                        .param("page", "0")
+                        .param("size", "20")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content").isEmpty())
+                .andExpect(jsonPath("$.pageable.pageNumber").value(0))
+                .andExpect(jsonPath("$.pageable.pageSize").value(20))
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    /**
+     * Tests retrieving all messages with pagination.
+     */
+    @Test
+    void shouldGetAllMessages() throws Exception {
+        // Arrange
+        MessageEntity message1 = createMessageEntity(1L, TEST_CONTENT);
+        MessageEntity message2 = createMessageEntity(2L, HELLO_CONTENT);
+        Pageable pageable = PageRequest.of(0, 20, Sort.by("createdAt").descending());
+        Page<MessageEntity> page = new PageImpl<>(List.of(message1, message2), pageable, 2);
+        when(repository.findAll(pageable)).thenReturn(page);
+
+        // Act & Assert
+        mockMvc.perform(get(MESSAGES_URL)
+                        .param("page", "0")
+                        .param("size", "20")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.content[0].id").value(1L))
+                .andExpect(jsonPath("$.content[0].content").value(TEST_CONTENT))
+                .andExpect(jsonPath("$.content[0].createdAt").exists())
+                .andExpect(jsonPath("$.content[1].id").value(2L))
+                .andExpect(jsonPath("$.content[1].content").value(HELLO_CONTENT))
+                .andExpect(jsonPath("$.content[1].createdAt").exists())
+                .andExpect(jsonPath("$.pageable.pageNumber").value(0))
+                .andExpect(jsonPath("$.pageable.pageSize").value(20))
+                .andExpect(jsonPath("$.totalElements").value(2));
     }
 
     /**
@@ -102,21 +137,17 @@ class MessageControllerTest {
     void shouldCreateMessage() throws Exception {
         // Arrange
         MessageDTO messageDTO = new MessageDTO(TEST_CONTENT);
-        MessageEntity message = createMessageEntity(TEST_CONTENT);
-        when(repository.save(any(MessageEntity.class))).thenReturn(message);
+        MessageEntity savedMessage = createMessageEntity(1L, TEST_CONTENT);
+        when(repository.save(any(MessageEntity.class))).thenReturn(savedMessage);
 
         // Act & Assert
-        webTestClient.post()
-                .uri(MESSAGES_URL)
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(objectMapper.writeValueAsString(messageDTO))
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody(MessageEntity.class)
-                .value(entity -> {
-                    assertThat(entity.getContent(), equalTo(TEST_CONTENT));
-                    assertThat(entity.getCreatedAt(), notNullValue());
-                });
+        mockMvc.perform(post(MESSAGES_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(messageDTO)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.content").value(TEST_CONTENT))
+                .andExpect(jsonPath("$.createdAt").exists());
     }
 
     /**
@@ -125,24 +156,58 @@ class MessageControllerTest {
     @Test
     void shouldSendToOpenAI() throws Exception {
         // Arrange
-        MessageDTO inputDTO = new MessageDTO(HELLO_CONTENT);
-        MessageEntity input = createMessageEntity(HELLO_CONTENT);
-        MessageEntity response = createMessageEntity(AI_RESPONSE);
+        MessageDTO messageDTO = new MessageDTO(HELLO_CONTENT);
+        MessageEntity input = createMessageEntity(1L, HELLO_CONTENT);
+        MessageEntity response = createMessageEntity(2L, AI_RESPONSE);
         when(repository.save(any(MessageEntity.class))).thenReturn(input, response);
-        when(openAIService.sendMessageToOpenAI(any(MessageEntity.class))).thenReturn(Mono.just(response));
+        when(openAIService.sendMessageToOpenAI(any(MessageEntity.class))).thenReturn(response);
 
         // Act & Assert
-        webTestClient.post()
-                .uri(OPENAI_URL)
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(objectMapper.writeValueAsString(inputDTO))
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody(MessageEntity.class)
-                .value(entity -> {
-                    assertThat(entity.getContent(), equalTo(AI_RESPONSE));
-                    assertThat(entity.getCreatedAt(), notNullValue());
-                });
+        mockMvc.perform(post(OPENAI_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(messageDTO)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(2L))
+                .andExpect(jsonPath("$.content").value(AI_RESPONSE))
+                .andExpect(jsonPath("$.createdAt").exists());
+    }
+
+    /**
+     * Tests rejecting a message with empty content.
+     */
+    @Test
+    void shouldRejectEmptyContent() throws Exception {
+        // Arrange
+        MessageDTO messageDTO = new MessageDTO("");
+
+        // Act & Assert
+        mockMvc.perform(post(OPENAI_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(messageDTO)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("/problems/validation-error"))
+                .andExpect(jsonPath("$.title").value("Validation Error"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("content Content cannot be blank"));
+    }
+
+    /**
+     * Tests rejecting a message with unknown fields (e.g., id).
+     */
+    @Test
+    void shouldRejectMessageWithExistingId() throws Exception {
+        // Arrange
+        String invalidJson = "{\"content\":\"" + HELLO_CONTENT + "\",\"id\":1}";
+
+        // Act & Assert
+        mockMvc.perform(post(OPENAI_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("/problems/invalid-request"))
+                .andExpect(jsonPath("$.title").value("Invalid Request"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Unknown field: id"));
     }
 
     /**
@@ -151,44 +216,26 @@ class MessageControllerTest {
     @Test
     void shouldHandleOpenAIError() throws Exception {
         // Arrange
-        MessageDTO inputDTO = new MessageDTO(HELLO_CONTENT);
-        MessageEntity input = createMessageEntity(HELLO_CONTENT);
+        MessageDTO messageDTO = new MessageDTO(HELLO_CONTENT);
+        MessageEntity input = createMessageEntity(1L, HELLO_CONTENT);
         when(repository.save(any(MessageEntity.class))).thenReturn(input);
         when(openAIService.sendMessageToOpenAI(any(MessageEntity.class)))
-                .thenReturn(Mono.error(new OpenAIServiceException("OpenAI API error")));
+                .thenThrow(new OpenAIServiceException("OpenAI API error"));
 
         // Act & Assert
-        webTestClient.post()
-                .uri(OPENAI_URL)
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(objectMapper.writeValueAsString(inputDTO))
-                .exchange()
-                .expectStatus().is5xxServerError()
-                .expectBody()
-                .jsonPath("$.detail").isEqualTo("Failed to process OpenAI request");
+        mockMvc.perform(post(OPENAI_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(messageDTO)))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.type").value("/problems/openai-service-error"))
+                .andExpect(jsonPath("$.title").value("OpenAI Service Error"))
+                .andExpect(jsonPath("$.status").value(500))
+                .andExpect(jsonPath("$.detail").value("Failed to process OpenAI request"));
     }
 
-    /**
-     * Tests sending a message with unknown fields (e.g., id).
-     */
-    @Test
-    void shouldRejectMessageWithExistingId() {
-        // Arrange
-        String invalidJson = "{\"content\":\"" + HELLO_CONTENT + "\",\"id\":1}";
-
-        // Act & Assert
-        webTestClient.post()
-                .uri(OPENAI_URL)
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(invalidJson)
-                .exchange()
-                .expectStatus().isBadRequest()
-                .expectBody(String.class)
-                .isEqualTo("Unknown field in request: id");
-    }
-
-    private MessageEntity createMessageEntity(String content) {
+    private MessageEntity createMessageEntity(Long id, String content) {
         MessageEntity entity = new MessageEntity();
+        entity.setId(id);
         entity.setContent(content);
         entity.setCreatedAt(LocalDateTime.now());
         return entity;

@@ -9,7 +9,6 @@ import discord4j.core.event.domain.message.MessageCreateEvent;
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.channel.MessageChannel;
 import discord4j.core.spec.MessageCreateMono;
-import discord4j.core.spec.MessageCreateSpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,7 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
- * Tests for DiscordBotService.
+ * Tests for {@link DiscordBotServiceImpl}.
  */
 @ExtendWith(MockitoExtension.class)
 class DiscordBotServiceTest {
@@ -33,9 +32,10 @@ class DiscordBotServiceTest {
     private static final String BOT_PREFIX = "!ai ";
     private static final String USER_MESSAGE = "Hello!";
     private static final String AI_RESPONSE = "Hi, hello!";
+    private static final String EMPTY_MESSAGE = "!ai ";
 
     @Mock
-    private OpenAIService openAIService;
+    private OpenAIServiceImpl openAIService;
 
     @Mock
     private MessageRepository messageRepository;
@@ -53,7 +53,7 @@ class DiscordBotServiceTest {
     private MessageChannel messageChannel;
 
     @InjectMocks
-    private DiscordBotService discordBotService;
+    private DiscordBotServiceImpl discordBotService;
 
     @BeforeEach
     void setUp() {
@@ -66,32 +66,35 @@ class DiscordBotServiceTest {
     @Test
     void shouldHandleMessageWithPrefix() {
         // Arrange
-        Message mockedResponseMessage = mock(Message.class);
-        when(message.getContent()).thenReturn(BOT_PREFIX + USER_MESSAGE);
+        String inputMessage = BOT_PREFIX + USER_MESSAGE;
+        MessageEntity userMessage = createMessageEntity(USER_MESSAGE);
+        MessageEntity aiResponse = createMessageEntity(AI_RESPONSE);
+        Message responseMessage = mock(Message.class);
+
+        when(message.getContent()).thenReturn(inputMessage);
         when(messageCreateEvent.getMessage()).thenReturn(message);
         when(message.getChannel()).thenReturn(Mono.just(messageChannel));
-        when(messageChannel.createMessage(anyString())).thenAnswer(inv ->
-                MessageCreateMono.of(messageChannel).withContent(inv.getArgument(0, String.class)));
-        when(messageChannel.createMessage(any(MessageCreateSpec.class))).thenReturn(Mono.just(mockedResponseMessage));
+        when(messageRepository.save(any(MessageEntity.class)))
+                .thenReturn(userMessage)
+                .thenReturn(aiResponse);
+        when(openAIService.sendMessageToOpenAI(userMessage)).thenReturn(aiResponse);
 
-        MessageEntity userMessage = createMessageEntity();
-        MessageEntity aiResponse = createMessageEntity();
-        aiResponse.setContent(AI_RESPONSE);
-        when(messageRepository.save(any(MessageEntity.class))).thenReturn(userMessage, aiResponse);
-        when(openAIService.sendMessageToOpenAI(any(MessageEntity.class))).thenReturn(Mono.just(aiResponse));
+        MessageCreateMono mockCreateMono = mock(MessageCreateMono.class);
+        doReturn(mockCreateMono).when(messageChannel).createMessage(eq(AI_RESPONSE));
+        doReturn(Mono.just(responseMessage)).when(mockCreateMono).onErrorMap(any());
 
         // Act
         Mono<Message> result = discordBotService.handleMessageCreateEvent(messageCreateEvent);
 
         // Assert
         StepVerifier.create(result)
-                .expectNext(mockedResponseMessage)
-                .expectComplete()
-                .verify();
+                .expectNext(responseMessage)
+                .verifyComplete();
 
         verify(messageRepository, times(2)).save(any(MessageEntity.class));
         verify(openAIService).sendMessageToOpenAI(userMessage);
-        verify(messageChannel).createMessage(AI_RESPONSE);
+        verify(messageChannel).createMessage(eq(AI_RESPONSE));
+        verify(mockCreateMono).onErrorMap(any());
     }
 
     /**
@@ -108,8 +111,26 @@ class DiscordBotServiceTest {
 
         // Assert
         StepVerifier.create(result)
-                .expectComplete()
-                .verify();
+                .verifyComplete();
+
+        verifyNoInteractions(messageRepository, openAIService, messageChannel);
+    }
+
+    /**
+     * Tests ignoring a message with empty content after prefix removal.
+     */
+    @Test
+    void shouldIgnoreEmptyMessageContent() {
+        // Arrange
+        when(message.getContent()).thenReturn(EMPTY_MESSAGE);
+        when(messageCreateEvent.getMessage()).thenReturn(message);
+
+        // Act
+        Mono<Message> result = discordBotService.handleMessageCreateEvent(messageCreateEvent);
+
+        // Assert
+        StepVerifier.create(result)
+                .verifyComplete();
 
         verifyNoInteractions(messageRepository, openAIService, messageChannel);
     }
@@ -124,17 +145,16 @@ class DiscordBotServiceTest {
         when(messageCreateEvent.getMessage()).thenReturn(message);
         when(message.getChannel()).thenReturn(Mono.just(messageChannel));
 
-        MessageEntity userMessage = createMessageEntity();
+        MessageEntity userMessage = createMessageEntity(USER_MESSAGE);
         when(messageRepository.save(any(MessageEntity.class))).thenReturn(userMessage);
-        when(openAIService.sendMessageToOpenAI(any())).thenReturn(Mono.error(new OpenAIServiceException("OpenAI API error")));
+        when(openAIService.sendMessageToOpenAI(any())).thenThrow(new OpenAIServiceException("OpenAI API error"));
 
         // Act
         Mono<Message> result = discordBotService.handleMessageCreateEvent(messageCreateEvent);
 
         // Assert
         StepVerifier.create(result)
-                .expectComplete()
-                .verify();
+                .verifyComplete();
 
         verify(messageRepository).save(any(MessageEntity.class));
         verify(openAIService).sendMessageToOpenAI(userMessage);
@@ -158,8 +178,7 @@ class DiscordBotServiceTest {
 
         // Assert
         StepVerifier.create(result)
-                .expectComplete()
-                .verify();
+                .verifyComplete();
 
         verify(messageRepository).save(any(MessageEntity.class));
         verifyNoInteractions(openAIService, messageChannel);
@@ -180,15 +199,14 @@ class DiscordBotServiceTest {
 
         // Assert
         StepVerifier.create(result)
-                .expectComplete()
-                .verify();
+                .verifyComplete();
 
         verifyNoInteractions(messageRepository, openAIService, messageChannel);
     }
 
-    private MessageEntity createMessageEntity() {
+    private MessageEntity createMessageEntity(String content) {
         MessageEntity entity = new MessageEntity();
-        entity.setContent(DiscordBotServiceTest.USER_MESSAGE);
+        entity.setContent(content);
         entity.setCreatedAt(LocalDateTime.now());
         return entity;
     }

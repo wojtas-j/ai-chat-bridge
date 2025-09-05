@@ -9,7 +9,7 @@ import org.springframework.test.context.ActiveProfiles;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests for MessageRepository.
+ * Tests for {@link MessageRepository}.
  */
 @DataJpaTest
 @ActiveProfiles("test")

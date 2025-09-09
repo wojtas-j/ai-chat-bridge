@@ -23,7 +23,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Controller for handling message-related requests.
+ * Handles HTTP requests related to messages in the AI Chat Bridge application, including retrieval, creation, and OpenAI processing.
+ * @since 1.0
  */
 @RestController
 @RequestMapping("/api/messages")
@@ -33,16 +34,23 @@ public class MessageController {
     private final MessageRepository repository;
     private final OpenAIServiceImpl openAIServiceImpl;
 
+    /**
+     * Constructs a new MessageController with the required dependencies.
+     * @param repository the repository for managing messages
+     * @param openAIServiceImpl the service for interacting with OpenAI
+     * @since 1.0
+     */
     public MessageController(MessageRepository repository, OpenAIServiceImpl openAIServiceImpl) {
         this.repository = repository;
         this.openAIServiceImpl = openAIServiceImpl;
     }
 
     /**
-     * Retrieves all messages from the database with pagination and default sorting by createdAt (descending).
-     *
-     * @param pageable Pagination information (page number, size, ignored sort parameters).
-     * @return A ResponseEntity containing a page of messages.
+     * Retrieves all messages from the database with pagination and default sorting by {@code createdAt} in descending order.
+     * @param pageable pagination information (page number, size, ignored sort parameters)
+     * @return a ResponseEntity containing a page of messages
+     * @throws ResponseStatusException if an error occurs during message retrieval
+     * @since 1.0
      */
     @Operation(summary = "Gets all messages with pagination")
     @ApiResponses({
@@ -66,9 +74,10 @@ public class MessageController {
 
     /**
      * Creates a new message and saves it to the database.
-     *
-     * @param messageDTO The message DTO containing the content to save.
-     * @return A ResponseEntity containing the saved message entity.
+     * @param messageDTO the message DTO containing the content to save
+     * @return a ResponseEntity containing the saved message entity
+     * @throws ResponseStatusException if an error occurs during message creation
+     * @since 1.0
      */
     @Operation(summary = "Creates a new message")
     @ApiResponses({
@@ -95,9 +104,11 @@ public class MessageController {
 
     /**
      * Sends a message to OpenAI and saves the response in the database.
-     *
-     * @param messageDTO The message DTO containing the content to send to OpenAI.
-     * @return A ResponseEntity containing the AI-generated response as a MessageEntity.
+     * @param messageDTO the message DTO containing the content to send to OpenAI
+     * @return a ResponseEntity containing the AI-generated response as a MessageEntity
+     * @throws OpenAIServiceException if an error occurs during OpenAI processing
+     * @throws ResponseStatusException if an unexpected error occurs
+     * @since 1.0
      */
     @Operation(summary = "Sends message to OpenAI")
     @ApiResponses({

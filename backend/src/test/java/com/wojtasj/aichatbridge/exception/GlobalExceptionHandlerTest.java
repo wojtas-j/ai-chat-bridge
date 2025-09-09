@@ -24,7 +24,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * Tests for {@link GlobalExceptionHandler}.
+ * Tests the exception handling of {@link GlobalExceptionHandler} in the AI Chat Bridge application.
+ * @since 1.0
  */
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
@@ -33,6 +34,10 @@ class GlobalExceptionHandlerTest {
     private MockMvc mockMvc;
     private ObjectMapper objectMapper;
 
+    /**
+     * Sets up the test environment with MockMvc and GlobalExceptionHandler.
+     * @since 1.0
+     */
     @BeforeEach
     void setUp() {
         GlobalExceptionHandler exceptionHandler = new GlobalExceptionHandler();
@@ -49,10 +54,12 @@ class GlobalExceptionHandlerTest {
     }
 
     /**
-     * Tests handling of OpenAIServiceException.
+     * Tests handling of {@link OpenAIServiceException}.
+     * @since 1.0
      */
     @Test
     void shouldHandleOpenAIServiceException() throws Exception {
+        // Act & Assert
         mockMvc.perform(post("/test/openai")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isInternalServerError())
@@ -63,10 +70,12 @@ class GlobalExceptionHandlerTest {
     }
 
     /**
-     * Tests handling of DiscordServiceException.
+     * Tests handling of {@link DiscordServiceException}.
+     * @since 1.0
      */
     @Test
     void shouldHandleDiscordServiceException() throws Exception {
+        // Act & Assert
         mockMvc.perform(post("/test/discord")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isInternalServerError())
@@ -77,11 +86,15 @@ class GlobalExceptionHandlerTest {
     }
 
     /**
-     * Tests handling of HttpMessageNotReadableException with UnrecognizedPropertyException cause.
+     * Tests handling of {@link com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException} within {@link org.springframework.http.converter.HttpMessageNotReadableException}.
+     * @since 1.0
      */
     @Test
     void shouldHandleUnrecognizedPropertyException() throws Exception {
+        // Arrange
         String invalidJson = "{\"contentx\":\"test\",\"unknownField\":1}";
+
+        // Act & Assert
         mockMvc.perform(post("/test/invalid-json")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalidJson))
@@ -93,11 +106,15 @@ class GlobalExceptionHandlerTest {
     }
 
     /**
-     * Tests handling of HttpMessageNotReadableException for malformed JSON.
+     * Tests handling of {@link org.springframework.http.converter.HttpMessageNotReadableException} for malformed JSON.
+     * @since 1.0
      */
     @Test
     void shouldHandleMalformedJson() throws Exception {
-        String malformedJson = "{\"content\": \"test\""; // Missing closing brace
+        // Arrange
+        String malformedJson = "{\"content\": \"test\"";
+
+        // Act & Assert
         mockMvc.perform(post("/test/invalid-json")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(malformedJson))
@@ -109,11 +126,15 @@ class GlobalExceptionHandlerTest {
     }
 
     /**
-     * Tests handling of MethodArgumentNotValidException.
+     * Tests handling of {@link org.springframework.web.bind.MethodArgumentNotValidException} for validation errors.
+     * @since 1.0
      */
     @Test
     void shouldHandleValidationException() throws Exception {
+        // Arrange
         MessageDTO messageDTO = new MessageDTO("");
+
+        // Act & Assert
         mockMvc.perform(post("/test/validation")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(messageDTO)))
@@ -125,10 +146,12 @@ class GlobalExceptionHandlerTest {
     }
 
     /**
-     * Tests handling of ResponseStatusException.
+     * Tests handling of {@link org.springframework.web.server.ResponseStatusException}.
+     * @since 1.0
      */
     @Test
     void shouldHandleResponseStatusException() throws Exception {
+        // Act & Assert
         mockMvc.perform(post("/test/response-status")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isInternalServerError())
@@ -139,10 +162,12 @@ class GlobalExceptionHandlerTest {
     }
 
     /**
-     * Tests handling of generic Exception.
+     * Tests handling of generic {@link Exception}.
+     * @since 1.0
      */
     @Test
     void shouldHandleGenericException() throws Exception {
+        // Act & Assert
         mockMvc.perform(post("/test/generic")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isInternalServerError())
@@ -153,7 +178,8 @@ class GlobalExceptionHandlerTest {
     }
 
     /**
-     * Test controller to simulate exceptions.
+     * Test controller to simulate various exceptions for testing {@link GlobalExceptionHandler}.
+     * @since 1.0
      */
     @RestController
     static class TestController {

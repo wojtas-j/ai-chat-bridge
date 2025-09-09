@@ -9,7 +9,8 @@ import org.springframework.test.context.ActiveProfiles;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests for {@link MessageRepository}.
+ * Tests the CRUD operations of {@link MessageRepository} in the AI Chat Bridge application.
+ * @since 1.0
  */
 @DataJpaTest
 @ActiveProfiles("test")
@@ -19,7 +20,8 @@ public class MessageRepositoryTest {
     private MessageRepository repository;
 
     /**
-     * Tests saving and retrieving a message.
+     * Tests saving a message to the database and retrieving it.
+     * @since 1.0
      */
     @Test
     void shouldSaveAndFindMessage() {

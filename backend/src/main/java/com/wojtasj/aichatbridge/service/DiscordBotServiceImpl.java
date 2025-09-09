@@ -18,7 +18,9 @@ import reactor.core.scheduler.Schedulers;
 import java.time.LocalDateTime;
 
 /**
- * Service for integrating with Discord bot to handle messages.
+ * Implements Discord bot integration for processing messages in the AI Chat Bridge application.
+ * @since 1.0
+ * @see DiscordBotService
  */
 @Service
 @Slf4j
@@ -29,6 +31,14 @@ public class DiscordBotServiceImpl implements DiscordBotService {
     private final MessageRepository messageRepository;
     private final DiscordProperties discordProperties;
 
+
+    /**
+     * Constructs a new DiscordBotServiceImpl with the required dependencies.
+     * @param openAIService the service for interacting with OpenAI
+     * @param messageRepository the repository for managing messages
+     * @param discordProperties the configuration properties for the Discord bot
+     * @since 1.0
+     */
     public DiscordBotServiceImpl(OpenAIServiceImpl openAIService, MessageRepository messageRepository, DiscordProperties discordProperties) {
         this.openAIService = openAIService;
         this.messageRepository = messageRepository;
@@ -36,7 +46,8 @@ public class DiscordBotServiceImpl implements DiscordBotService {
     }
 
     /**
-     * Initializes the Discord bot and sets up message event handling.
+     * Initializes the Discord bot and sets up message event handling using the configured bot token.
+     * @since 1.0
      */
     @PostConstruct
     public void init() {
@@ -46,10 +57,10 @@ public class DiscordBotServiceImpl implements DiscordBotService {
     }
 
     /**
-     * Handles a Discord message event by processing messages with the configured prefix.
-     *
+     * Processes a Discord message event by handling messages with the configured prefix, saving them to the database, sending to OpenAI, and responding in the Discord channel.
      * @param event the MessageCreateEvent to process
      * @return a Mono representing the result of message processing
+     * @since 1.0
      */
     @Override
     public Mono<Message> handleMessageCreateEvent(MessageCreateEvent event) {

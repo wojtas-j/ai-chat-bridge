@@ -24,7 +24,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
- * Tests for {@link DiscordBotServiceImpl}.
+ * Tests the functionality of {@link DiscordBotServiceImpl} in the AI Chat Bridge application.
+ * @since 1.0
  */
 @ExtendWith(MockitoExtension.class)
 class DiscordBotServiceTest {
@@ -55,13 +56,18 @@ class DiscordBotServiceTest {
     @InjectMocks
     private DiscordBotServiceImpl discordBotService;
 
+    /**
+     * Sets up the test environment with mocked dependencies.
+     * @since 1.0
+     */
     @BeforeEach
     void setUp() {
         when(discordProperties.getBotPrefix()).thenReturn(BOT_PREFIX);
     }
 
     /**
-     * Tests handling a message with the correct prefix.
+     * Tests handling a message with the correct prefix, including saving to database, OpenAI processing, and Discord response.
+     * @since 1.0
      */
     @Test
     void shouldHandleMessageWithPrefix() {
@@ -99,6 +105,7 @@ class DiscordBotServiceTest {
 
     /**
      * Tests ignoring a message without the correct prefix.
+     * @since 1.0
      */
     @Test
     void shouldIgnoreMessageWithoutPrefix() {
@@ -118,6 +125,7 @@ class DiscordBotServiceTest {
 
     /**
      * Tests ignoring a message with empty content after prefix removal.
+     * @since 1.0
      */
     @Test
     void shouldIgnoreEmptyMessageContent() {
@@ -136,7 +144,8 @@ class DiscordBotServiceTest {
     }
 
     /**
-     * Tests handling OpenAI service error.
+     * Tests handling of {@link OpenAIServiceException} during OpenAI processing.
+     * @since 1.0
      */
     @Test
     void shouldHandleOpenAIError() {
@@ -162,7 +171,8 @@ class DiscordBotServiceTest {
     }
 
     /**
-     * Tests handling database save error for user message.
+     * Tests handling of {@link DiscordServiceException} during database save operation.
+     * @since 1.0
      */
     @Test
     void shouldHandleDatabaseSaveError() {
@@ -185,7 +195,8 @@ class DiscordBotServiceTest {
     }
 
     /**
-     * Tests handling Discord channel error.
+     * Tests handling of {@link DiscordServiceException} when accessing the Discord channel.
+     * @since 1.0
      */
     @Test
     void shouldHandleDiscordChannelError() {
@@ -204,6 +215,12 @@ class DiscordBotServiceTest {
         verifyNoInteractions(messageRepository, openAIService, messageChannel);
     }
 
+    /**
+     * Creates a mock MessageEntity for testing purposes.
+     * @param content the content of the message
+     * @return a MessageEntity with the specified content
+     * @since 1.0
+     */
     private MessageEntity createMessageEntity(String content) {
         MessageEntity entity = new MessageEntity();
         entity.setContent(content);

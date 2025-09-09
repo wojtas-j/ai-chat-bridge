@@ -39,7 +39,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * Tests for {@link MessageController}.
+ * Tests the functionality of {@link MessageController} in the AI Chat Bridge application.
+ * @since 1.0
  */
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
@@ -67,6 +68,10 @@ class MessageControllerTest {
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
             .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
 
+    /**
+     * Sets up the test environment with MockMvc and dependencies.
+     * @since 1.0
+     */
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
@@ -78,7 +83,8 @@ class MessageControllerTest {
     }
 
     /**
-     * Tests retrieving an empty page when no messages exist.
+     * Tests retrieving an empty page when no messages exist in the database.
+     * @since 1.0
      */
     @Test
     void shouldReturnEmptyListWhenNoMessages() throws Exception {
@@ -100,7 +106,8 @@ class MessageControllerTest {
     }
 
     /**
-     * Tests retrieving all messages with pagination.
+     * Tests retrieving all messages with pagination from the database.
+     * @since 1.0
      */
     @Test
     void shouldGetAllMessages() throws Exception {
@@ -131,7 +138,8 @@ class MessageControllerTest {
     }
 
     /**
-     * Tests creating a new message.
+     * Tests creating a new message and saving it to the database.
+     * @since 1.0
      */
     @Test
     void shouldCreateMessage() throws Exception {
@@ -151,7 +159,8 @@ class MessageControllerTest {
     }
 
     /**
-     * Tests sending a message to OpenAI and saving the response.
+     * Tests sending a message to OpenAI and saving the response in the database.
+     * @since 1.0
      */
     @Test
     void shouldSendToOpenAI() throws Exception {
@@ -173,7 +182,8 @@ class MessageControllerTest {
     }
 
     /**
-     * Tests rejecting a message with empty content.
+     * Tests rejecting a message with empty content during OpenAI processing.
+     * @since 1.0
      */
     @Test
     void shouldRejectEmptyContent() throws Exception {
@@ -192,7 +202,8 @@ class MessageControllerTest {
     }
 
     /**
-     * Tests rejecting a message with unknown fields (e.g., id).
+     * Tests rejecting a message with unknown fields (e.g., id) in the request.
+     * @since 1.0
      */
     @Test
     void shouldRejectMessageWithExistingId() throws Exception {
@@ -211,7 +222,8 @@ class MessageControllerTest {
     }
 
     /**
-     * Tests handling OpenAI error in sendToOpenAI.
+     * Tests handling of {@link OpenAIServiceException} in the sendToOpenAI endpoint.
+     * @since 1.0
      */
     @Test
     void shouldHandleOpenAIError() throws Exception {
@@ -233,6 +245,13 @@ class MessageControllerTest {
                 .andExpect(jsonPath("$.detail").value("Failed to process OpenAI request"));
     }
 
+    /**
+     * Creates a mock MessageEntity for testing purposes.
+     * @param id the ID of the message
+     * @param content the content of the message
+     * @return a MessageEntity with the specified ID and content
+     * @since 1.0
+     */
     private MessageEntity createMessageEntity(Long id, String content) {
         MessageEntity entity = new MessageEntity();
         entity.setId(id);

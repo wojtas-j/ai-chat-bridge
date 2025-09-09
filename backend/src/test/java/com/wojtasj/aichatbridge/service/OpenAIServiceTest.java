@@ -19,7 +19,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Tests for {@link OpenAIServiceImpl}.
+ * Tests the functionality of {@link OpenAIServiceImpl} for interacting with the OpenAI API in the AI Chat Bridge application.
+ * @since 1.0
  */
 @SpringBootTest
 @ActiveProfiles("test")
@@ -44,6 +45,10 @@ class OpenAIServiceTest {
     @Autowired
     private OpenAIProperties openAIProperties;
 
+    /**
+     * Sets up the WireMock server for mocking OpenAI API responses.
+     * @since 1.0
+     */
     @BeforeEach
     void setUp() {
         wireMockServer = new WireMockServer(WireMockConfiguration.options().port(WIREMOCK_PORT));
@@ -51,6 +56,10 @@ class OpenAIServiceTest {
         wireMockServer.resetAll();
     }
 
+    /**
+     * Stops the WireMock server after each test.
+     * @since 1.0
+     */
     @AfterEach
     void tearDown() {
         if (wireMockServer != null && wireMockServer.isRunning()) {
@@ -59,7 +68,8 @@ class OpenAIServiceTest {
     }
 
     /**
-     * Tests sending a message to OpenAI and receiving a response.
+     * Tests sending a message to OpenAI and receiving a valid response.
+     * @since 1.0
      */
     @Test
     void shouldSendMessageToOpenAI() {
@@ -82,7 +92,8 @@ class OpenAIServiceTest {
     }
 
     /**
-     * Tests handling an error response from OpenAI.
+     * Tests handling a server error response from OpenAI.
+     * @since 1.0
      */
     @Test
     void shouldHandleOpenAIError() {
@@ -103,7 +114,8 @@ class OpenAIServiceTest {
     }
 
     /**
-     * Tests handling invalid JSON response from OpenAI.
+     * Tests handling an invalid JSON response from OpenAI.
+     * @since 1.0
      */
     @Test
     void shouldHandleInvalidJsonResponse() {
@@ -124,7 +136,8 @@ class OpenAIServiceTest {
     }
 
     /**
-     * Tests handling empty choices in OpenAI response.
+     * Tests handling an empty choices response from OpenAI.
+     * @since 1.0
      */
     @Test
     void shouldHandleEmptyChoicesResponse() {
@@ -145,7 +158,8 @@ class OpenAIServiceTest {
     }
 
     /**
-     * Tests retry on 429 Too Many Requests.
+     * Tests retry logic when OpenAI returns a 429 Too Many Requests response.
+     * @since 1.0
      */
     @Test
     void shouldRetryOnTooManyRequests() {
@@ -190,7 +204,8 @@ class OpenAIServiceTest {
     }
 
     /**
-     * Tests throwing exception on null input.
+     * Tests throwing {@link OpenAIServiceException} when the input message is null.
+     * @since 1.0
      */
     @Test
     void shouldThrowExceptionOnNullInput() {
@@ -201,7 +216,8 @@ class OpenAIServiceTest {
     }
 
     /**
-     * Tests throwing exception on empty input.
+     * Tests throwing {@link OpenAIServiceException} when the input message content is empty.
+     * @since 1.0
      */
     @Test
     void shouldThrowExceptionOnEmptyInput() {
@@ -215,7 +231,8 @@ class OpenAIServiceTest {
     }
 
     /**
-     * Tests throwing exception on input with null content.
+     * Tests throwing {@link OpenAIServiceException} when the input message content is null.
+     * @since 1.0
      */
     @Test
     void shouldThrowExceptionOnNullContent() {
@@ -229,6 +246,12 @@ class OpenAIServiceTest {
         assertThat(exception.getMessage()).contains(MESSAGE_CONTENT_CANNOT_BE_NULL);
     }
 
+    /**
+     * Creates a mock MessageEntity for testing purposes.
+     * @param content the content of the message
+     * @return a MessageEntity with the specified content
+     * @since 1.0
+     */
     private MessageEntity createMessageEntity(String content) {
         MessageEntity entity = new MessageEntity();
         entity.setContent(content);

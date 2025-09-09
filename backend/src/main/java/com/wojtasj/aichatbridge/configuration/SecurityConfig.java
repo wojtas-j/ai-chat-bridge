@@ -8,13 +8,18 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * Configuration for Spring Security in the AI Chat Bridge application.
+ * Configures Spring Security for the AI Chat Bridge application, allowing open access to all endpoints.
+ * @since 1.0
  */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
     /**
-     * Spring Security configuration for the AI Chat Bridge application.
+     * Configures the security filter chain to permit all HTTP requests and disable CSRF, form login, and HTTP basic authentication.
+     * @param http the HttpSecurity object used to configure web security
+     * @return a SecurityFilterChain defining the security configuration
+     * @throws Exception if an error occurs during configuration
+     * @since 1.0
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {

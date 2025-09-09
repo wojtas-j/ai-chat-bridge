@@ -29,10 +29,19 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-logging:3.5.5'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
-	implementation 'org.json:json:20250517'
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.11'
-	implementation 'org.springframework:spring-webflux:6.2.10'
+	implementation 'org.springframework.boot:spring-boot-starter-validation:3.5.5'
+	implementation 'org.springframework:spring-web:6.2.10'
 	implementation 'org.flywaydb:flyway-core:11.11.2'
+	implementation 'com.discord4j:discord4j-core:3.3.0-RC3'
+	implementation 'io.projectreactor:reactor-core:3.7.9'
+	implementation 'org.springframework:spring-aspects:7.0.0-M8'
+	implementation 'org.springframework.retry:spring-retry:2.0.12'
+	implementation('org.json:json:20250517') {
+		exclude group: 'com.vaadin.external.google', module: 'android-json'
+	}
+	implementation('org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.12') {
+		exclude group: 'com.vaadin.external.google', module: 'android-json'
+	}
 
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
@@ -45,15 +54,20 @@ dependencies {
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
-	testImplementation 'org.testcontainers:postgresql:1.21.3'
 	testImplementation 'org.testcontainers:junit-jupiter:1.21.3'
 	testImplementation 'org.junit.jupiter:junit-jupiter:5.13.4'
 	testImplementation 'org.assertj:assertj-core:3.26.3'
 	testImplementation 'com.github.tomakehurst:wiremock-standalone:3.0.1'
+	testImplementation 'io.projectreactor:reactor-test:3.7.9'
+	testImplementation 'org.mockito:mockito-core:5.19.0'
+	testImplementation 'org.mockito:mockito-junit-jupiter:5.19.0'
+	testImplementation 'net.bytebuddy:byte-buddy-agent:1.17.7'
+	testImplementation 'com.h2database:h2:2.3.232'
 
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+	jvmArgs "-javaagent:${configurations.testRuntimeClasspath.find { it.name.contains('byte-buddy-agent') }}"
 }

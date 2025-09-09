@@ -9,23 +9,30 @@ import org.springframework.test.context.ActiveProfiles;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests for MessageRepository.
+ * Tests the CRUD operations of {@link MessageRepository} in the AI Chat Bridge application.
+ * @since 1.0
  */
 @DataJpaTest
 @ActiveProfiles("test")
 public class MessageRepositoryTest {
+
     @Autowired
     private MessageRepository repository;
 
     /**
-     * Tests saving and retrieving a message.
+     * Tests saving a message to the database and retrieving it.
+     * @since 1.0
      */
     @Test
     void shouldSaveAndFindMessage() {
+        // Arrange
         MessageEntity message = new MessageEntity();
         message.setContent("Test message");
+
+        // Act
         repository.save(message);
 
+        // Assert
         assertThat(repository.findAll()).hasSize(1);
         assertThat(repository.findAll().getFirst().getContent()).isEqualTo("Test message");
     }

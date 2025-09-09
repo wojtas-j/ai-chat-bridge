@@ -1,19 +1,25 @@
 spring:
   datasource:
-    url: jdbc:tc:postgresql:17.6-alpine:///aichatbridge?TC_DAEMON=true
-    username: devuser
-    password: devpass
-    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
   jpa:
     hibernate:
       ddl-auto: create-drop
-    show-sql: true
-    properties:
-      hibernate.format_sql: true
+    database-platform: org.hibernate.dialect.H2Dialect
   flyway:
     enabled: false
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
 openai:
   api-key: test-key
   base-url: http://localhost:8089
   model: gpt-4o-mini
   max-tokens: 100
+  chatCompletionsEndpoint: /chat/completions
+discord:
+  bot-token: "test-token"
+  bot-prefix: "!ai "
+  bot-enabled: false

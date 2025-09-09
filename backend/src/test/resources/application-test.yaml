@@ -23,3 +23,6 @@ discord:
   bot-token: "test-token"
   bot-prefix: "!ai "
   bot-enabled: false
+jwt:
+  secret: "test-secret"
+  expirationMs: 360000

@@ -1,11 +1,14 @@
 package com.wojtasj.aichatbridge.exception;
 
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -27,45 +30,50 @@ public class GlobalExceptionHandler {
     /**
      * Handles {@link OpenAIServiceException} by returning a problem details response.
      * @param ex the OpenAI service exception
+     * @param request the HTTP request
      * @return a ResponseEntity containing problem details with HTTP status 500
      * @since 1.0
      */
     @ExceptionHandler(OpenAIServiceException.class)
-    public ResponseEntity<Map<String, Object>> handleOpenAIServiceException(OpenAIServiceException ex) {
+    public ResponseEntity<Map<String, Object>> handleOpenAIServiceException(OpenAIServiceException ex, HttpServletRequest request) {
         log.error("OpenAI error: {}", ex.getMessage(), ex);
         return buildProblemDetailsResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "OpenAI Service Error",
                 "Failed to process OpenAI request",
-                "/problems/openai-service-error"
+                "/problems/openai-service-error",
+                request.getRequestURI()
         );
     }
 
     /**
-     * Handles {@link OpenAIServiceException} by returning a problem details response.
-     * @param ex the OpenAI service exception
+     * Handles {@link DiscordServiceException} by returning a problem details response.
+     * @param ex the Discord service exception
+     * @param request the HTTP request
      * @return a ResponseEntity containing problem details with HTTP status 500
      * @since 1.0
      */
     @ExceptionHandler(DiscordServiceException.class)
-    public ResponseEntity<Map<String, Object>> handleDiscordServiceException(DiscordServiceException ex) {
+    public ResponseEntity<Map<String, Object>> handleDiscordServiceException(DiscordServiceException ex, HttpServletRequest request) {
         log.error("Discord error: {}", ex.getMessage(), ex);
         return buildProblemDetailsResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "Discord Service Error",
                 "Failed to process Discord request",
-                "/problems/discord-service-error"
+                "/problems/discord-service-error",
+                request.getRequestURI()
         );
     }
 
     /**
      * Handles {@link HttpMessageNotReadableException} for malformed JSON or unrecognized fields.
      * @param ex the HTTP message not readable exception
+     * @param request the HTTP request
      * @return a ResponseEntity containing problem details with HTTP status 400
      * @since 1.0
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<Map<String, Object>> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
+    public ResponseEntity<Map<String, Object>> handleHttpMessageNotReadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
         if (ex.getCause() instanceof UnrecognizedPropertyException unrecognized) {
             String fieldName = unrecognized.getPropertyName();
             log.error("Unknown field in request: {}", fieldName, ex);
@@ -73,7 +81,8 @@ public class GlobalExceptionHandler {
                     HttpStatus.BAD_REQUEST,
                     "Invalid Request",
                     "Unknown field: " + fieldName,
-                    "/problems/invalid-request"
+                    "/problems/invalid-request",
+                    request.getRequestURI()
             );
         }
 
@@ -82,18 +91,21 @@ public class GlobalExceptionHandler {
                 HttpStatus.BAD_REQUEST,
                 "Invalid Request",
                 "Malformed JSON request",
-                "/problems/malformed-json"
+                "/problems/malformed-json",
+                request.getRequestURI()
         );
     }
 
     /**
-     * Handles {@link MethodArgumentNotValidException} for validation errors in request data.
-     * @param ex the validation exception
-     * @return a ResponseEntity containing problem details with HTTP status 400
+     * Handles {@link MethodArgumentNotValidException} which occurs when
+     * validation of a request body annotated with {@code @Valid} fails.
+     * @param ex the exception containing field errors
+     * @param request the HTTP request
+     * @return a {@link ResponseEntity} containing problem details with HTTP status 400
      * @since 1.0
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>> handleValidationException(MethodArgumentNotValidException ex) {
+    public ResponseEntity<Map<String, Object>> handleMethodArgumentNotValid(MethodArgumentNotValidException ex, HttpServletRequest request) {
         String errorMessage = ex.getFieldErrors().stream()
                 .map(err -> err.getField() + " " + err.getDefaultMessage())
                 .collect(Collectors.joining("; "));
@@ -102,18 +114,84 @@ public class GlobalExceptionHandler {
                 HttpStatus.BAD_REQUEST,
                 "Validation Error",
                 errorMessage.isEmpty() ? "Validation failed" : errorMessage,
-                "/problems/validation-error"
+                "/problems/validation-error",
+                request.getRequestURI()
+        );
+    }
+
+    /**
+     * Handles {@link ConstraintViolationException} which occurs when
+     * validation of method parameters, path variables, or request parameters fails.
+     * @param ex the exception containing constraint violations
+     * @param request the HTTP request
+     * @return a {@link ResponseEntity} containing problem details with HTTP status 400
+     * @since 1.0
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleConstraintViolation(ConstraintViolationException ex, HttpServletRequest request) {
+        String errorMessage = ex.getConstraintViolations().stream()
+                .map(violation -> violation.getPropertyPath() + " " + violation.getMessage())
+                .collect(Collectors.joining("; "));
+        log.error("Constraint violation error: {}", errorMessage, ex);
+        return buildProblemDetailsResponse(
+                HttpStatus.BAD_REQUEST,
+                "Validation Error",
+                errorMessage.isEmpty() ? "Validation failed" : errorMessage,
+                "/problems/validation-error",
+                request.getRequestURI()
+        );
+    }
+
+    /**
+     * Handles {@link BadCredentialsException} for invalid authentication credentials.
+     * @param ex the bad credentials exception
+     * @param request the HTTP request
+     * @return a ResponseEntity containing problem details with HTTP status 401
+     * @since 1.0
+     */
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<Map<String, Object>> handleBadCredentialsException(BadCredentialsException ex, HttpServletRequest request) {
+        log.error("Authentication error: {}", ex.getMessage(), ex);
+        return buildProblemDetailsResponse(
+                HttpStatus.UNAUTHORIZED,
+                "Authentication Failed",
+                "Invalid username or password",
+                "/problems/authentication-failed",
+                request.getRequestURI()
+        );
+    }
+
+    /**
+     * Handles {@link AuthenticationException} for authentication-related errors.
+     * @param ex the authentication exception
+     * @param request the HTTP request
+     * @return a ResponseEntity containing problem details with HTTP status 401 or 409
+     * @since 1.0
+     */
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<Map<String, Object>> handleAuthenticationException(AuthenticationException ex, HttpServletRequest request) {
+        log.error("Authentication error: {}", ex.getMessage(), ex);
+        HttpStatus status = ex.getMessage().contains("already taken") ? HttpStatus.CONFLICT : HttpStatus.UNAUTHORIZED;
+        String title = status == HttpStatus.CONFLICT ? "Registration Failed" : "Authentication Failed";
+        String type = status == HttpStatus.CONFLICT ? "/problems/registration-failed" : "/problems/authentication-failed";
+        return buildProblemDetailsResponse(
+                status,
+                title,
+                ex.getMessage(),
+                type,
+                request.getRequestURI()
         );
     }
 
     /**
      * Handles {@link ResponseStatusException} for HTTP status errors.
      * @param ex the response status exception
+     * @param request the HTTP request
      * @return a ResponseEntity containing problem details with the corresponding HTTP status
      * @since 1.0
      */
     @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<Map<String, Object>> handleResponseStatusException(ResponseStatusException ex) {
+    public ResponseEntity<Map<String, Object>> handleResponseStatusException(ResponseStatusException ex, HttpServletRequest request) {
         log.error("Response status error: {}", ex.getReason(), ex);
         HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
         if (status == null) {
@@ -123,24 +201,27 @@ public class GlobalExceptionHandler {
                 status,
                 status.getReasonPhrase(),
                 ex.getReason() != null ? ex.getReason() : "Internal server error",
-                "/problems/response-status-error"
+                "/problems/response-status-error",
+                request.getRequestURI()
         );
     }
 
     /**
      * Handles unexpected exceptions not caught by specific handlers.
      * @param ex the generic exception
+     * @param request the HTTP request
      * @return a ResponseEntity containing problem details with HTTP status 500
      * @since 1.0
      */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
+    public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex, HttpServletRequest request) {
         log.error("Unexpected error: {}", ex.getMessage(), ex);
         return buildProblemDetailsResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "Internal Server Error",
                 "Unexpected error: " + ex.getMessage(),
-                "/problems/internal-server-error"
+                "/problems/internal-server-error",
+                request.getRequestURI()
         );
     }
 
@@ -150,15 +231,17 @@ public class GlobalExceptionHandler {
      * @param title the title of the error
      * @param detail the detailed error message
      * @param type the URI identifying the error type
+     * @param instance the URI of the request causing the error
      * @return a ResponseEntity containing the problem details
      * @since 1.0
      */
-    private ResponseEntity<Map<String, Object>> buildProblemDetailsResponse(HttpStatus status, String title, String detail, String type) {
+    private ResponseEntity<Map<String, Object>> buildProblemDetailsResponse(HttpStatus status, String title, String detail, String type, String instance) {
         Map<String, Object> problemDetails = new HashMap<>();
         problemDetails.put("type", type);
         problemDetails.put("title", title);
         problemDetails.put("status", status.value());
         problemDetails.put("detail", detail);
+        problemDetails.put("instance", instance);
         return new ResponseEntity<>(problemDetails, status);
     }
 }

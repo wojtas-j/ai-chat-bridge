@@ -5,9 +5,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -30,6 +28,8 @@ import java.util.stream.Collectors;
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Slf4j
 public class UserEntity implements UserDetails {
 
@@ -48,15 +48,13 @@ public class UserEntity implements UserDetails {
     @Column(unique = true, nullable = false)
     private String email;
 
-    @NotBlank(message = "Password cannot be blank")
-    @Size(min = 8, message = "Password must be at least 8 characters")
-    @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$",
-            message = "Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character")
+    @Column(nullable = false)
     private String password;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
     @Enumerated(EnumType.STRING)
+    @Builder.Default
     private Set<Role> roles = new HashSet<>();
 
     @CreatedDate
@@ -64,26 +62,11 @@ public class UserEntity implements UserDetails {
     private LocalDateTime createdAt;
 
     /**
-     * Constructs a new UserEntity.
-     * @param username the user's username
-     * @param email the user's email
-     * @param password the user's password (encrypted)
-     * @param roles the set of roles assigned to the user
-     * @since 1.0
-     */
-    public UserEntity(String username, String email, String password, Set<Role> roles) {
-        this.username = username;
-        this.email = email;
-        this.password = password;
-        this.roles = roles;
-    }
-
-    /**
      * Logs the creation of a new user entity before persisting it to the database.
      * @since 1.0
      */
     @PrePersist
-    public void logNewMessage() {
+    public void logNewUser() {
         log.debug("Creating new user entity with username and email: {}, {}", username, email);
     }
 

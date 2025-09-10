@@ -13,6 +13,14 @@ spring:
   jackson:
     deserialization:
       fail-on-unknown-properties: true
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      access: unrestricted
 openai:
   api-key: test-key
   base-url: http://localhost:8089

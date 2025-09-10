@@ -17,6 +17,14 @@ spring:
       fail-on-unknown-properties: true
 server:
   port: 8080
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: when-authorized
 openai:
   api-key: ${OPENAI_API_KEY}
   base-url: https://api.openai.com/v1

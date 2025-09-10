@@ -34,12 +34,16 @@ public class JwtTokenProviderImpl implements JwtTokenProvider {
      */
     @Override
     public String generateToken(Authentication authentication) {
-        log.info("Generating JWT token for user: {}", authentication.getName());
+        Object principal = authentication.getPrincipal();
+
+        if (!(principal instanceof UserEntity user)) {
+            log.error("Invalid principal type: {}", principal.getClass().getName());
+            throw new AuthenticationException("Invalid authentication principal");
+        }
+
         try {
-            if (!(authentication.getPrincipal() instanceof UserEntity user)) {
-                log.error("Invalid principal type: {}", authentication.getPrincipal().getClass().getName());
-                throw new AuthenticationException("Invalid authentication principal");
-            }
+            log.info("Generating JWT token for user: {}", user.getUsername());
+
             Date now = new Date();
             Date expiryDate = new Date(now.getTime() + jwtProperties.getExpirationMs());
 
@@ -50,10 +54,11 @@ public class JwtTokenProviderImpl implements JwtTokenProvider {
                     .expiration(expiryDate)
                     .signWith(getSigningKey())
                     .compact();
+
             log.info("JWT token generated successfully for user: {}", user.getUsername());
             return token;
-        } catch (Exception e) {
-            log.error("Failed to generate JWT token: {}", e.getMessage(), e);
+        } catch (JwtException e) {
+            log.error("Failed to generate JWT token for user {}: {}", user.getUsername(), e.getMessage(), e);
             throw new AuthenticationException("Failed to generate JWT token", e);
         }
     }

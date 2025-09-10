@@ -43,11 +43,9 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
             throw new IllegalArgumentException("Refresh token expiration time must be positive");
         }
         String token = UUID.randomUUID().toString();
-        LocalDateTime expiryDate = LocalDateTime.now().plusDays(expirationDays);
         RefreshTokenEntity refreshToken = RefreshTokenEntity.builder()
                 .token(token)
                 .user(user)
-                .expiryDate(expiryDate)
                 .build();
         RefreshTokenEntity savedToken = refreshTokenRepository.save(refreshToken);
         log.info("Refresh token generated successfully for user: {}", user.getUsername());

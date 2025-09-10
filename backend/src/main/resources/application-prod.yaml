@@ -30,3 +30,4 @@ discord:
 jwt:
   secret: ${JWT_SECRET}
   expirationMs: ${JWT_EXPIRATION_MS}
+  refreshExpirationDays: ${JWT_REFRESH_EXPIRATION_DAYS}

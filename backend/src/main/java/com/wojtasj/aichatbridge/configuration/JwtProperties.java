@@ -1,17 +1,18 @@
 package com.wojtasj.aichatbridge.configuration;
 
 import jakarta.annotation.PostConstruct;
-import org.springframework.stereotype.Component;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
 /**
  * Configuration properties for JWT authentication in the AI Chat Bridge application.
  * <p>Properties include:</p>
  * <ul>
  *     <li>{@link #secret} - the secret key used to sign JWT tokens</li>
- *     <li>{@link #expirationMs} - the expiration time for JWT tokens in milliseconds</li>
+ *     <li>{@link #expirationMs} - the expiration time for access tokens in milliseconds</li>
+ *     <li>{@link #refreshExpirationDays} - the expiration time for refresh tokens in days</li>
  * </ul>
  * @since 1.0
  */
@@ -22,20 +23,11 @@ import lombok.Setter;
 public class JwtProperties {
     private String secret;
     private long expirationMs;
+    private long refreshExpirationDays;
 
     /**
-     * Validates the JWT configuration properties after they are set.
-     * <p>
-     * This method is automatically called by Spring after the properties are injected.
-     * It checks that:
-     * <ul>
-     *     <li>{@link #secret} is not null and has at least 32 characters</li>
-     *     <li>{@link #expirationMs} is positive</li>
-     * </ul>
-     * If any of these conditions are not met, an {@link IllegalArgumentException} is thrown.
-     * </p>
-     *
-     * @throws IllegalArgumentException if the secret is too short or expirationMs is not positive
+     * Validates JWT properties after initialization.
+     * @throws IllegalArgumentException if properties are invalid
      * @since 1.0
      */
     @PostConstruct
@@ -44,7 +36,10 @@ public class JwtProperties {
             throw new IllegalArgumentException("JWT secret must be at least 32 characters long");
         }
         if (expirationMs <= 0) {
-            throw new IllegalArgumentException("JWT expirationMs must be positive");
+            throw new IllegalArgumentException("JWT access token expirationMs must be positive");
+        }
+        if (refreshExpirationDays <= 0) {
+            throw new IllegalArgumentException("JWT refresh token expirationDays must be positive");
         }
     }
 }

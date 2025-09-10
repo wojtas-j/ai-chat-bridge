@@ -20,7 +20,6 @@ public interface AuthenticationService {
 
     /**
      * Finds a user by their username.
-     *
      * @param username the username of the user to find
      * @return the UserEntity corresponding to the given username
      * @throws com.wojtasj.aichatbridge.exception.AuthenticationException if the user is not found

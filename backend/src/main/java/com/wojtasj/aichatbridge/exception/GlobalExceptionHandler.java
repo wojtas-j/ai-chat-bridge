@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -179,6 +180,25 @@ public class GlobalExceptionHandler {
                 title,
                 ex.getMessage(),
                 type,
+                request.getRequestURI()
+        );
+    }
+
+    /**
+     * Handles {@link AccessDeniedException} for unauthorized access attempts.
+     * @param ex the access denied exception
+     * @param request the HTTP request
+     * @return a ResponseEntity containing problem details with HTTP status 403
+     * @since 1.0
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleAccessDeniedException(AccessDeniedException ex, HttpServletRequest request) {
+        log.error("Access denied: {}", ex.getMessage(), ex);
+        return buildProblemDetailsResponse(
+                HttpStatus.FORBIDDEN,
+                "Access Denied",
+                "You do not have permission to access this resource",
+                "/problems/access-denied",
                 request.getRequestURI()
         );
     }

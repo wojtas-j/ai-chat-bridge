@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Set;
 
@@ -35,6 +36,7 @@ public class AuthenticationServiceImpl implements AuthenticationService, UserDet
      * @since 1.0
      */
     @Override
+    @Transactional
     public UserEntity register(RegisterRequest request) {
         log.info("Registering new user: {}", request.username());
         if (userRepository.findByUsername(request.username()).isPresent()) {

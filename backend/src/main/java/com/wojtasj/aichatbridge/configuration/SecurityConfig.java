@@ -4,6 +4,7 @@ import com.wojtasj.aichatbridge.service.JwtTokenProviderImpl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -18,6 +19,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtTokenProviderImpl jwtTokenProvider;
@@ -31,7 +33,8 @@ public class SecurityConfig {
     /**
      * Configures the security filter chain to protect endpoints and enable JWT authentication.
      * <p>
-     * - Public access to /api/auth/** for login and registration.
+     * - Public access to /api/auth/login and /api/auth/register for authentication and registration.
+     * - Authenticated access to /api/auth/refresh for token refresh.
      * - Authenticated access to /api/messages/** for message-related operations.
      * - Disables CSRF, form login, and HTTP basic authentication as JWT is used.
      * - Adds JWT authentication filter before UsernamePasswordAuthenticationFilter.
@@ -50,7 +53,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
+                        .requestMatchers("/api/auth/refresh").authenticated()
                         .requestMatchers("/api/messages/**").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);

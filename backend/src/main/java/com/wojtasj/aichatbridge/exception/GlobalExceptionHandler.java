@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -163,7 +162,26 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Handles {@link AuthenticationException} for authentication-related errors.
+     * Handles {@link AccessDeniedException} for unauthorized access attempts.
+     * @param ex the custom access denied exception
+     * @param request the HTTP request
+     * @return a ResponseEntity containing problem details with HTTP status 403
+     * @since 1.0
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleCustomAccessDeniedException(AccessDeniedException ex, HttpServletRequest request) {
+        log.error("Access denied: {}", ex.getMessage(), ex);
+        return buildProblemDetailsResponse(
+                HttpStatus.FORBIDDEN,
+                "Access Denied",
+                ex.getMessage(),
+                "/problems/access-denied",
+                request.getRequestURI()
+        );
+    }
+
+    /**
+     * Handles {@link AuthenticationException} for authentication-related errors, including {@link UserAlreadyExistsException}.
      * @param ex the authentication exception
      * @param request the HTTP request
      * @return a ResponseEntity containing problem details with HTTP status 401 or 409
@@ -172,9 +190,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<Map<String, Object>> handleAuthenticationException(AuthenticationException ex, HttpServletRequest request) {
         log.error("Authentication error: {}", ex.getMessage(), ex);
-        HttpStatus status = ex.getMessage().contains("already taken") ? HttpStatus.CONFLICT : HttpStatus.UNAUTHORIZED;
-        String title = status == HttpStatus.CONFLICT ? "Registration Failed" : "Authentication Failed";
-        String type = status == HttpStatus.CONFLICT ? "/problems/registration-failed" : "/problems/authentication-failed";
+        HttpStatus status = ex instanceof UserAlreadyExistsException ? HttpStatus.CONFLICT : HttpStatus.UNAUTHORIZED;
+        String title = ex instanceof UserAlreadyExistsException ? "Registration Failed" : "Authentication Failed";
+        String type = ex instanceof UserAlreadyExistsException ? "/problems/registration-failed" : "/problems/authentication-failed";
         return buildProblemDetailsResponse(
                 status,
                 title,
@@ -185,14 +203,14 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Handles {@link AccessDeniedException} for unauthorized access attempts.
-     * @param ex the access denied exception
+     * Handles {@link org.springframework.security.access.AccessDeniedException} for unauthorized access attempts.
+     * @param ex the Spring Security access denied exception
      * @param request the HTTP request
      * @return a ResponseEntity containing problem details with HTTP status 403
      * @since 1.0
      */
-    @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<Map<String, Object>> handleAccessDeniedException(AccessDeniedException ex, HttpServletRequest request) {
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleAccessDeniedException(org.springframework.security.access.AccessDeniedException ex, HttpServletRequest request) {
         log.error("Access denied: {}", ex.getMessage(), ex);
         return buildProblemDetailsResponse(
                 HttpStatus.FORBIDDEN,

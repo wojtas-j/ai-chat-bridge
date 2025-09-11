@@ -168,7 +168,7 @@ class GlobalExceptionHandlerTest {
     }
 
     /**
-     * Tests handling of {@link jakarta.validation.ConstraintViolationException} for parameter validation errors.
+     * Tests handling of {@link ConstraintViolationException} for parameter validation errors.
      * @since 1.0
      */
     @Test
@@ -186,7 +186,7 @@ class GlobalExceptionHandlerTest {
     }
 
     /**
-     * Tests handling of {@link org.springframework.security.authentication.BadCredentialsException}.
+     * Tests handling of {@link BadCredentialsException}.
      * @since 1.0
      */
     @Test
@@ -203,7 +203,7 @@ class GlobalExceptionHandlerTest {
     }
 
     /**
-     * Tests handling of {@link com.wojtasj.aichatbridge.exception.AuthenticationException} for authentication errors.
+     * Tests handling of {@link AuthenticationException} for authentication errors.
      * @since 1.0
      */
     @Test
@@ -220,7 +220,7 @@ class GlobalExceptionHandlerTest {
     }
 
     /**
-     * Tests handling of {@link com.wojtasj.aichatbridge.exception.AuthenticationException} for registration errors.
+     * Tests handling of {@link AuthenticationException} for registration errors.
      * @since 1.0
      */
     @Test
@@ -237,7 +237,7 @@ class GlobalExceptionHandlerTest {
     }
 
     /**
-     * Tests handling of {@link org.springframework.security.access.AccessDeniedException}.
+     * Tests handling of {@link AccessDeniedException}.
      * @since 1.0
      */
     @Test
@@ -254,7 +254,7 @@ class GlobalExceptionHandlerTest {
     }
 
     /**
-     * Tests handling of {@link org.springframework.web.server.ResponseStatusException}.
+     * Tests handling of {@link ResponseStatusException}.
      * @since 1.0
      */
     @Test
@@ -345,12 +345,12 @@ class GlobalExceptionHandlerTest {
 
         @PostMapping("/test/authentication")
         public void throwAuthenticationException() {
-            throw new com.wojtasj.aichatbridge.exception.AuthenticationException("Authentication failed");
+            throw new AuthenticationException("Authentication failed");
         }
 
         @PostMapping("/test/authentication-registration")
         public void throwAuthenticationExceptionForRegistration() {
-            throw new com.wojtasj.aichatbridge.exception.AuthenticationException("Username already taken");
+            throw new UserAlreadyExistsException("Username already taken");
         }
 
         @PostMapping("/test/access-denied")

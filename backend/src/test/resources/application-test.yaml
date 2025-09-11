@@ -13,6 +13,14 @@ spring:
   jackson:
     deserialization:
       fail-on-unknown-properties: true
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      access: unrestricted
 openai:
   api-key: test-key
   base-url: http://localhost:8089
@@ -23,3 +31,7 @@ discord:
   bot-token: "test-token"
   bot-prefix: "!ai "
   bot-enabled: false
+jwt:
+  secret: "dGhpc2lzYXZlcnlsb25nc2VjcmV0a2V5Zm9yc2lnbmluZ2p3dHRva2Vucw=="
+  expirationMs: 3600000
+  refreshExpirationDays: 1

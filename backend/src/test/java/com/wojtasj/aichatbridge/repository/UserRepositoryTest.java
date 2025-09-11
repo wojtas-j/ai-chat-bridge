@@ -2,6 +2,7 @@ package com.wojtasj.aichatbridge.repository;
 
 import com.wojtasj.aichatbridge.entity.Role;
 import com.wojtasj.aichatbridge.entity.UserEntity;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -20,6 +21,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 public class UserRepositoryTest {
 
+    @BeforeEach
+    void setUp() {
+        UserEntity testUser = UserEntity.builder()
+                .username("testuser")
+                .email("test@example.com")
+                .password("password")
+                .roles(Set.of(Role.USER))
+                .build();
+        repository.save(testUser);
+    }
+
     @Autowired
     private UserRepository repository;
 
@@ -29,11 +41,7 @@ public class UserRepositoryTest {
      */
     @Test
     void shouldSaveAndFindByUsername() {
-        // Arrange
-        UserEntity user = buildUser();
-        repository.save(user);
         // Act
-
         Optional<UserEntity> foundUser = repository.findByUsername("testuser");
 
         // Assert
@@ -61,10 +69,6 @@ public class UserRepositoryTest {
      */
     @Test
     void shouldSaveAndFindByEmail() {
-        // Arrange
-        UserEntity user = buildUser();
-        repository.save(user);
-
         // Act
         Optional<UserEntity> foundUser = repository.findByEmail("test@example.com");
 
@@ -93,10 +97,6 @@ public class UserRepositoryTest {
      */
     @Test
     void shouldSaveAndFindByUsernameOrEmail() {
-        // Arrange
-        UserEntity user = buildUser();
-        repository.save(user);
-
         // Act
         Optional<UserEntity> foundByUsername = repository.findByUsernameOrEmail("testuser", "wrong@example.com");
         Optional<UserEntity> foundByEmail = repository.findByUsernameOrEmail("wronguser", "test@example.com");
@@ -119,20 +119,5 @@ public class UserRepositoryTest {
 
         // Assert
         assertThat(foundUser).isEmpty();
-    }
-
-    /**
-     * Builds a UserEntity object with default test values.
-     * @return a UserEntity with username "testuser", email "test@example.com",
-     *         password "password", and a single role USER
-     * @since 1.0
-     */
-    private UserEntity buildUser() {
-        return UserEntity.builder()
-                .username("testuser")
-                .email("test@example.com")
-                .password("password")
-                .roles(Set.of(Role.USER))
-                .build();
     }
 }

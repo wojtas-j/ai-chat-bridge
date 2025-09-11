@@ -19,6 +19,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -59,6 +60,7 @@ public class MessageController {
             @ApiResponse(responseCode = "403", description = "Forbidden - no permission to access"),
             @ApiResponse(responseCode = "500", description = "Server error")
     })
+    @PreAuthorize("isAuthenticated()")
     @GetMapping
     public ResponseEntity<Page<MessageEntity>> getAllMessages(@PageableDefault(size = 20) Pageable pageable) {
         log.info("Getting all messages with pagination");
@@ -87,6 +89,7 @@ public class MessageController {
             @ApiResponse(responseCode = "403", description = "Forbidden - no permission to access"),
             @ApiResponse(responseCode = "500", description = "Server error")
     })
+    @PreAuthorize("isAuthenticated()")
     @PostMapping
     public ResponseEntity<MessageEntity> createMessage(@Valid @RequestBody MessageDTO messageDTO) {
         log.info("Creating the new message: {}", messageDTO.content());
@@ -118,6 +121,7 @@ public class MessageController {
             @ApiResponse(responseCode = "403", description = "Forbidden - no permission to access"),
             @ApiResponse(responseCode = "500", description = "Server error")
     })
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/openai")
     public ResponseEntity<MessageEntity> sendToOpenAI(@Valid @RequestBody MessageDTO messageDTO) {
         log.info("Processing message with OpenAI: {}", messageDTO.content());

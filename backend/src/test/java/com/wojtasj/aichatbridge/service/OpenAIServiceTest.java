@@ -3,6 +3,7 @@ package com.wojtasj.aichatbridge.service;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.wojtasj.aichatbridge.configuration.OpenAIProperties;
+import com.wojtasj.aichatbridge.entity.DiscordMessageEntity;
 import com.wojtasj.aichatbridge.entity.MessageEntity;
 import com.wojtasj.aichatbridge.exception.OpenAIServiceException;
 import org.junit.jupiter.api.AfterEach;
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @ActiveProfiles("test")
 class OpenAIServiceTest {
 
+    private static final String TEST_USER = "TEST_USER";
     private static final String TEST_MESSAGE_CONTENT = "Hello!";
     private static final String EXPECTED_RESPONSE_CONTENT = "Hi, hello!";
     private static final String CONTENT_TYPE = "application/json";
@@ -68,13 +70,14 @@ class OpenAIServiceTest {
     }
 
     /**
-     * Tests sending a message to OpenAI and receiving a valid response.
+     * Tests sending a message to OpenAI and receiving a valid response for MessageEntity.
      * @since 1.0
      */
     @Test
     void shouldSendMessageToOpenAI() {
         // Arrange
-        wireMockServer.stubFor(post(urlEqualTo(openAIProperties.getChatCompletionsEndpoint()))
+        wireMockServer.stubFor(post(urlPathEqualTo(openAIProperties.getChatCompletionsEndpoint()))
+                .withHeader("Authorization", equalTo("Bearer test-key"))
                 .withRequestBody(containing(String.format("\"%s\":\"%s\"", CONTENT_KEY, TEST_MESSAGE_CONTENT)))
                 .willReturn(aResponse()
                         .withStatus(200)
@@ -84,10 +87,39 @@ class OpenAIServiceTest {
         MessageEntity input = createMessageEntity(TEST_MESSAGE_CONTENT);
 
         // Act
-        MessageEntity result = openAIService.sendMessageToOpenAI(input);
+        MessageEntity result = openAIService.sendMessageToOpenAI(input, false);
 
         // Assert
+        assertThat(result).isNotNull();
         assertThat(result.getContent()).isEqualTo(EXPECTED_RESPONSE_CONTENT);
+        assertThat(result.getCreatedAt()).isNotNull();
+    }
+
+
+    /**
+     * Tests sending a Discord message to OpenAI and receiving a valid response for DiscordMessageEntity.
+     * @since 1.0
+     */
+    @Test
+    void shouldSendDiscordMessageToOpenAI() {
+        // Arrange
+        wireMockServer.stubFor(post(urlEqualTo(openAIProperties.getChatCompletionsEndpoint()))
+                .withHeader("Authorization", equalTo("Bearer test-key"))
+                .withRequestBody(containing(String.format("\"%s\":\"%s\"", CONTENT_KEY, TEST_MESSAGE_CONTENT)))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", CONTENT_TYPE)
+                        .withBody(String.format("{\"choices\":[{\"message\":{\"%s\":\"%s\"}}]}", CONTENT_KEY, EXPECTED_RESPONSE_CONTENT))));
+
+        DiscordMessageEntity input = createDiscordMessageEntity();
+
+        // Act
+        DiscordMessageEntity result = openAIService.sendMessageToOpenAI(input, true);
+
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(result.getContent()).isEqualTo(EXPECTED_RESPONSE_CONTENT);
+        assertThat(result.getDiscordNick()).isEqualTo("AI-Bot");
         assertThat(result.getCreatedAt()).isNotNull();
     }
 
@@ -99,6 +131,7 @@ class OpenAIServiceTest {
     void shouldHandleOpenAIError() {
         // Arrange
         wireMockServer.stubFor(post(urlEqualTo(openAIProperties.getChatCompletionsEndpoint()))
+                .withHeader("Authorization", equalTo("Bearer test-key"))
                 .withRequestBody(containing(String.format("\"%s\":\"%s\"", CONTENT_KEY, TEST_MESSAGE_CONTENT)))
                 .willReturn(aResponse()
                         .withStatus(500)
@@ -109,7 +142,7 @@ class OpenAIServiceTest {
 
         // Act & Assert
         OpenAIServiceException exception = assertThrows(OpenAIServiceException.class,
-                () -> openAIService.sendMessageToOpenAI(input));
+                () -> openAIService.sendMessageToOpenAI(input, false));
         assertThat(exception.getMessage()).contains("OpenAI API error: 500");
     }
 
@@ -121,6 +154,7 @@ class OpenAIServiceTest {
     void shouldHandleInvalidJsonResponse() {
         // Arrange
         wireMockServer.stubFor(post(urlEqualTo(openAIProperties.getChatCompletionsEndpoint()))
+                .withHeader("Authorization", equalTo("Bearer test-key"))
                 .withRequestBody(containing(String.format("\"%s\":\"%s\"", CONTENT_KEY, TEST_MESSAGE_CONTENT)))
                 .willReturn(aResponse()
                         .withStatus(200)
@@ -131,8 +165,8 @@ class OpenAIServiceTest {
 
         // Act & Assert
         OpenAIServiceException exception = assertThrows(OpenAIServiceException.class,
-                () -> openAIService.sendMessageToOpenAI(input));
-        assertThat(exception.getMessage()).contains("Error parsing OpenAI response");
+                () -> openAIService.sendMessageToOpenAI(input, false));
+        assertThat(exception.getMessage()).contains("Error parsing OpenAI response: {");
     }
 
     /**
@@ -143,6 +177,7 @@ class OpenAIServiceTest {
     void shouldHandleEmptyChoicesResponse() {
         // Arrange
         wireMockServer.stubFor(post(urlEqualTo(openAIProperties.getChatCompletionsEndpoint()))
+                .withHeader("Authorization", equalTo("Bearer test-key"))
                 .withRequestBody(containing(String.format("\"%s\":\"%s\"", CONTENT_KEY, TEST_MESSAGE_CONTENT)))
                 .willReturn(aResponse()
                         .withStatus(200)
@@ -153,7 +188,7 @@ class OpenAIServiceTest {
 
         // Act & Assert
         OpenAIServiceException exception = assertThrows(OpenAIServiceException.class,
-                () -> openAIService.sendMessageToOpenAI(input));
+                () -> openAIService.sendMessageToOpenAI(input, false));
         assertThat(exception.getMessage()).contains("No content in response");
     }
 
@@ -167,6 +202,7 @@ class OpenAIServiceTest {
         wireMockServer.stubFor(post(urlEqualTo(openAIProperties.getChatCompletionsEndpoint()))
                 .inScenario("Retry Scenario")
                 .whenScenarioStateIs("Started")
+                .withHeader("Authorization", equalTo("Bearer test-key"))
                 .withRequestBody(containing(String.format("\"%s\":\"%s\"", CONTENT_KEY, TEST_MESSAGE_CONTENT)))
                 .willReturn(aResponse()
                         .withStatus(429)
@@ -177,6 +213,7 @@ class OpenAIServiceTest {
         wireMockServer.stubFor(post(urlEqualTo(openAIProperties.getChatCompletionsEndpoint()))
                 .inScenario("Retry Scenario")
                 .whenScenarioStateIs("First Retry")
+                .withHeader("Authorization", equalTo("Bearer test-key"))
                 .withRequestBody(containing(String.format("\"%s\":\"%s\"", CONTENT_KEY, TEST_MESSAGE_CONTENT)))
                 .willReturn(aResponse()
                         .withStatus(429)
@@ -187,6 +224,7 @@ class OpenAIServiceTest {
         wireMockServer.stubFor(post(urlEqualTo(openAIProperties.getChatCompletionsEndpoint()))
                 .inScenario("Retry Scenario")
                 .whenScenarioStateIs("Second Retry")
+                .withHeader("Authorization", equalTo("Bearer test-key"))
                 .withRequestBody(containing(String.format("\"%s\":\"%s\"", CONTENT_KEY, TEST_MESSAGE_CONTENT)))
                 .willReturn(aResponse()
                         .withStatus(200)
@@ -196,9 +234,10 @@ class OpenAIServiceTest {
         MessageEntity input = createMessageEntity(TEST_MESSAGE_CONTENT);
 
         // Act
-        MessageEntity result = openAIService.sendMessageToOpenAI(input);
+        MessageEntity result = openAIService.sendMessageToOpenAI(input, false);
 
         // Assert
+        assertThat(result).isNotNull();
         assertThat(result.getContent()).isEqualTo(EXPECTED_RESPONSE_CONTENT);
         assertThat(result.getCreatedAt()).isNotNull();
     }
@@ -211,7 +250,7 @@ class OpenAIServiceTest {
     void shouldThrowExceptionOnNullInput() {
         // Act & Assert
         OpenAIServiceException exception = assertThrows(OpenAIServiceException.class,
-                () -> openAIService.sendMessageToOpenAI(null));
+                () -> openAIService.sendMessageToOpenAI(null, false));
         assertThat(exception.getMessage()).contains(MESSAGE_CONTENT_CANNOT_BE_NULL);
     }
 
@@ -226,7 +265,7 @@ class OpenAIServiceTest {
 
         // Act & Assert
         OpenAIServiceException exception = assertThrows(OpenAIServiceException.class,
-                () -> openAIService.sendMessageToOpenAI(input));
+                () -> openAIService.sendMessageToOpenAI(input, false));
         assertThat(exception.getMessage()).contains(MESSAGE_CONTENT_CANNOT_BE_NULL);
     }
 
@@ -242,7 +281,7 @@ class OpenAIServiceTest {
 
         // Act & Assert
         OpenAIServiceException exception = assertThrows(OpenAIServiceException.class,
-                () -> openAIService.sendMessageToOpenAI(input));
+                () -> openAIService.sendMessageToOpenAI(input, false));
         assertThat(exception.getMessage()).contains(MESSAGE_CONTENT_CANNOT_BE_NULL);
     }
 
@@ -255,6 +294,20 @@ class OpenAIServiceTest {
     private MessageEntity createMessageEntity(String content) {
         MessageEntity entity = new MessageEntity();
         entity.setContent(content);
+        entity.setCreatedAt(LocalDateTime.now());
+        return entity;
+    }
+
+    /**
+     * Creates a mock DiscordMessageEntity for testing purposes.
+     *
+     * @return a DiscordMessageEntity with the specified content and discordNick
+     * @since 1.0
+     */
+    private DiscordMessageEntity createDiscordMessageEntity() {
+        DiscordMessageEntity entity = new DiscordMessageEntity();
+        entity.setContent(TEST_MESSAGE_CONTENT);
+        entity.setDiscordNick(TEST_USER);
         entity.setCreatedAt(LocalDateTime.now());
         return entity;
     }

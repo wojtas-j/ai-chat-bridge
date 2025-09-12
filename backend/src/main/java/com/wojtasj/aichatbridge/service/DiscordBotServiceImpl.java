@@ -71,7 +71,9 @@ public class DiscordBotServiceImpl implements DiscordBotService {
 
         return message.getChannel()
                 .onErrorMap(e -> new DiscordServiceException("Failed to get Discord channel", e))
-                .flatMap(channel -> Mono.fromCallable(() -> {
+                .flatMap(channel ->
+                        // Save user message to the database
+                        Mono.fromCallable(() -> {
                             DiscordMessageEntity userMessage = new DiscordMessageEntity();
                             userMessage.setContent(content);
                             userMessage.setDiscordNick(discordNick);
@@ -81,17 +83,20 @@ public class DiscordBotServiceImpl implements DiscordBotService {
                         .onErrorMap(e -> new DiscordServiceException("Failed to save Discord user message", e))
                         .flatMap(savedUserMessage -> {
                             log.info("Discord user message saved with ID: {} from nick: {}", savedUserMessage.getId(), savedUserMessage.getDiscordNick());
+                            // Send message to OpenAI and get response
                             return Mono.fromCallable(() -> openAIService.sendMessageToOpenAI(savedUserMessage, true))
                                     .subscribeOn(Schedulers.boundedElastic())
                                     .onErrorMap(e -> new OpenAIServiceException("Failed to process message with OpenAI", e));
                         })
                         .flatMap(aiResponse -> {
+                            // Save OpenAI response to the database
                             log.info("Received OpenAI response for Discord message: {}", aiResponse.getContent());
                             return Mono.fromCallable(() -> discordMessageRepository.save(aiResponse))
                                     .subscribeOn(Schedulers.boundedElastic())
                                     .onErrorMap(e -> new DiscordServiceException("Failed to save AI response", e));
                         })
                         .flatMap(savedAiResponse -> {
+                            // Send response to Discord channel
                             log.info("OpenAI response saved with ID: {} for nick: {}", savedAiResponse.getId(), savedAiResponse.getDiscordNick());
                             return channel.createMessage(savedAiResponse.getContent())
                                     .onErrorMap(e -> new DiscordServiceException("Failed to send message to Discord", e));

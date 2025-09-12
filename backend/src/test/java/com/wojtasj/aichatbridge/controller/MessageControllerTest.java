@@ -33,6 +33,7 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -169,7 +170,7 @@ class MessageControllerTest {
         MessageEntity input = createMessageEntity(1L, HELLO_CONTENT);
         MessageEntity response = createMessageEntity(2L, AI_RESPONSE);
         when(repository.save(any(MessageEntity.class))).thenReturn(input, response);
-        when(openAIService.sendMessageToOpenAI(any(MessageEntity.class))).thenReturn(response);
+        when(openAIService.sendMessageToOpenAI(any(MessageEntity.class), eq(false))).thenReturn(response);
 
         // Act & Assert
         mockMvc.perform(post(OPENAI_URL)
@@ -231,7 +232,7 @@ class MessageControllerTest {
         MessageDTO messageDTO = new MessageDTO(HELLO_CONTENT);
         MessageEntity input = createMessageEntity(1L, HELLO_CONTENT);
         when(repository.save(any(MessageEntity.class))).thenReturn(input);
-        when(openAIService.sendMessageToOpenAI(any(MessageEntity.class)))
+        when(openAIService.sendMessageToOpenAI(any(MessageEntity.class), eq(false)))
                 .thenThrow(new OpenAIServiceException("OpenAI API error"));
 
         // Act & Assert

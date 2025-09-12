@@ -23,6 +23,8 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDateTime;
+
 /**
  * Implements interaction with the OpenAI API for processing messages in the AI Chat Bridge application.
  * @since 1.0
@@ -122,16 +124,22 @@ public class OpenAIServiceImpl implements OpenAIService {
                 DiscordMessageEntity discordResponse = new DiscordMessageEntity();
                 discordResponse.setContent(responseText);
                 discordResponse.setDiscordNick("AI-Bot");
+                discordResponse.setCreatedAt(LocalDateTime.now());
                 return (T) discordResponse;
             } else if (message instanceof MessageEntity) {
                 MessageEntity userResponse = new MessageEntity();
                 userResponse.setContent(responseText);
+                userResponse.setCreatedAt(LocalDateTime.now());
                 return (T) userResponse;
             } else {
                 log.error("Unsupported message type: {}", message.getClass().getSimpleName());
                 throw new OpenAIServiceException("Unsupported message type: " + message.getClass().getSimpleName());
             }
-        } catch (HttpClientErrorException e) {
+        }
+        catch (OpenAIServiceException e) {
+            throw e;
+        }
+        catch (HttpClientErrorException e) {
             log.error("OpenAI API client error: {}", e.getStatusCode(), e);
             throw new OpenAIServiceException("OpenAI API error: " + e.getStatusCode(), e);
         } catch (HttpServerErrorException e) {
@@ -170,7 +178,11 @@ public class OpenAIServiceImpl implements OpenAIService {
             }
 
             return firstChoice.get("message").get("content").asText();
-        } catch (Exception e) {
+        }
+        catch (OpenAIServiceException e) {
+            throw e;
+        }
+        catch (Exception e) {
             log.error("Error parsing OpenAI response: {}, cause: {}", response, e.getMessage(), e);
             throw new OpenAIServiceException("Error parsing OpenAI response: " + response, e);
         }

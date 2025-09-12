@@ -29,9 +29,11 @@ openai:
   api-key: ${OPENAI_API_KEY}
   base-url: https://api.openai.com/v1
   model: gpt-4o-mini
-  max-tokens: 100
+  max-tokens: ${MAX_TOKENS_OPEN_AI}
   chatCompletionsEndpoint: /chat/completions
 discord:
+  api-key: ${OPENAI_API_KEY_FOR_DISCORD}
+  max-tokens: ${MAX_TOKENS_OPEN_AI_FOR_DISCORD}
   bot-token: ${DISCORD_BOT_TOKEN}
   bot-prefix: "!ai "
   bot-enabled: true

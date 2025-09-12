@@ -28,6 +28,8 @@ openai:
   max-tokens: 100
   chatCompletionsEndpoint: /chat/completions
 discord:
+  api-key: test-key
+  max-tokens: 100
   bot-token: "test-token"
   bot-prefix: "!ai "
   bot-enabled: false

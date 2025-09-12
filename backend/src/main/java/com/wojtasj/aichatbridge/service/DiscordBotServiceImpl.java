@@ -1,49 +1,35 @@
 package com.wojtasj.aichatbridge.service;
 
 import com.wojtasj.aichatbridge.configuration.DiscordProperties;
-import com.wojtasj.aichatbridge.entity.MessageEntity;
-import com.wojtasj.aichatbridge.repository.MessageRepository;
+import com.wojtasj.aichatbridge.entity.DiscordMessageEntity;
+import com.wojtasj.aichatbridge.repository.DiscordMessageRepository;
 import com.wojtasj.aichatbridge.exception.DiscordServiceException;
 import com.wojtasj.aichatbridge.exception.OpenAIServiceException;
 import discord4j.core.DiscordClient;
 import discord4j.core.event.domain.message.MessageCreateEvent;
 import discord4j.core.object.entity.Message;
+import discord4j.core.object.entity.User;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.time.LocalDateTime;
-
 /**
  * Implements Discord bot integration for processing messages in the AI Chat Bridge application.
  * @since 1.0
- * @see DiscordBotService
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 @ConditionalOnProperty(name = "discord.bot-enabled", havingValue = "true", matchIfMissing = true)
 public class DiscordBotServiceImpl implements DiscordBotService {
 
-    private final OpenAIServiceImpl openAIService;
-    private final MessageRepository messageRepository;
+    private final OpenAIService openAIService;
+    private final DiscordMessageRepository discordMessageRepository;
     private final DiscordProperties discordProperties;
-
-
-    /**
-     * Constructs a new DiscordBotServiceImpl with the required dependencies.
-     * @param openAIService the service for interacting with OpenAI
-     * @param messageRepository the repository for managing messages
-     * @param discordProperties the configuration properties for the Discord bot
-     * @since 1.0
-     */
-    public DiscordBotServiceImpl(OpenAIServiceImpl openAIService, MessageRepository messageRepository, DiscordProperties discordProperties) {
-        this.openAIService = openAIService;
-        this.messageRepository = messageRepository;
-        this.discordProperties = discordProperties;
-    }
 
     /**
      * Initializes the Discord bot and sets up message event handling using the configured bot token.
@@ -57,7 +43,8 @@ public class DiscordBotServiceImpl implements DiscordBotService {
     }
 
     /**
-     * Processes a Discord message event by handling messages with the configured prefix, saving them to the database, sending to OpenAI, and responding in the Discord channel.
+     * Processes a Discord message event by handling messages with the configured prefix, saving them to the database,
+     * sending to OpenAI, and responding in the Discord channel.
      * @param event the MessageCreateEvent to process
      * @return a Mono representing the result of message processing
      * @since 1.0
@@ -76,42 +63,39 @@ public class DiscordBotServiceImpl implements DiscordBotService {
             return Mono.empty();
         }
 
-        log.info("Received Discord bot message: {}", content);
+        String discordNick = message.getAuthor()
+                .map(User::getUsername)
+                .orElseThrow(() -> new DiscordServiceException("Failed to retrieve Discord username"));
 
-        // Get channel first
+        log.info("Received Discord bot message from {}: {}", discordNick, content);
+
         return message.getChannel()
                 .onErrorMap(e -> new DiscordServiceException("Failed to get Discord channel", e))
-                .flatMap(channel -> {
-                    // Save user message to the database
-                    return Mono.fromCallable(() -> {
-                                MessageEntity userMessage = new MessageEntity();
-                                userMessage.setContent(content);
-                                userMessage.setCreatedAt(LocalDateTime.now());
-                                return messageRepository.save(userMessage);
-                            })
-                            .subscribeOn(Schedulers.boundedElastic())
-                            .onErrorMap(e -> new DiscordServiceException("Failed to save user message", e))
-                            .flatMap(savedUserMessage -> {
-                                log.info("User message saved with ID: {}", savedUserMessage.getId());
-                                // Send message to OpenAI and get response
-                                return Mono.fromCallable(() -> openAIService.sendMessageToOpenAI(savedUserMessage))
-                                        .subscribeOn(Schedulers.boundedElastic())
-                                        .onErrorMap(e -> new OpenAIServiceException("Failed to process message with OpenAI", e));
-                            })
-                            .flatMap(aiResponse -> {
-                                log.info("Received OpenAI response: {}", aiResponse.getContent());
-                                // Save OpenAI response to the database
-                                return Mono.fromCallable(() -> messageRepository.save(aiResponse))
-                                        .subscribeOn(Schedulers.boundedElastic())
-                                        .onErrorMap(e -> new DiscordServiceException("Failed to save AI response", e));
-                            })
-                            .flatMap(savedAiResponse -> {
-                                log.info("OpenAI response saved with ID: {}", savedAiResponse.getId());
-                                // Send response to Discord channel
-                                return channel.createMessage(savedAiResponse.getContent())
-                                        .onErrorMap(e -> new DiscordServiceException("Failed to send message to Discord", e));
-                            });
-                })
+                .flatMap(channel -> Mono.fromCallable(() -> {
+                            DiscordMessageEntity userMessage = new DiscordMessageEntity();
+                            userMessage.setContent(content);
+                            userMessage.setDiscordNick(discordNick);
+                            return discordMessageRepository.save(userMessage);
+                        })
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .onErrorMap(e -> new DiscordServiceException("Failed to save Discord user message", e))
+                        .flatMap(savedUserMessage -> {
+                            log.info("Discord user message saved with ID: {} from nick: {}", savedUserMessage.getId(), savedUserMessage.getDiscordNick());
+                            return Mono.fromCallable(() -> openAIService.sendMessageToOpenAI(savedUserMessage, true))
+                                    .subscribeOn(Schedulers.boundedElastic())
+                                    .onErrorMap(e -> new OpenAIServiceException("Failed to process message with OpenAI", e));
+                        })
+                        .flatMap(aiResponse -> {
+                            log.info("Received OpenAI response for Discord message: {}", aiResponse.getContent());
+                            return Mono.fromCallable(() -> discordMessageRepository.save(aiResponse))
+                                    .subscribeOn(Schedulers.boundedElastic())
+                                    .onErrorMap(e -> new DiscordServiceException("Failed to save AI response", e));
+                        })
+                        .flatMap(savedAiResponse -> {
+                            log.info("OpenAI response saved with ID: {} for nick: {}", savedAiResponse.getId(), savedAiResponse.getDiscordNick());
+                            return channel.createMessage(savedAiResponse.getContent())
+                                    .onErrorMap(e -> new DiscordServiceException("Failed to send message to Discord", e));
+                        }))
                 .onErrorResume(e -> {
                     log.error("Error processing Discord message: {}", e.getMessage(), e);
                     return Mono.empty();

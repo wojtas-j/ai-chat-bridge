@@ -130,7 +130,7 @@ public class MessageController {
             message.setContent(messageDTO.content());
             MessageEntity saved = repository.save(message);
             log.info("Message saved before sending to OpenAI, ID: {}", saved.getId());
-            MessageEntity response = openAIServiceImpl.sendMessageToOpenAI(saved);
+            MessageEntity response = openAIServiceImpl.sendMessageToOpenAI(saved, false);
             MessageEntity savedResponse = repository.save(response);
             log.info("OpenAI response saved with ID: {}", savedResponse.getId());
             return ResponseEntity.ok(savedResponse);

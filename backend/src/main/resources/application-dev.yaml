@@ -28,10 +28,8 @@ management:
     health:
       show-details: always
 openai:
-  api-key: ${OPENAI_API_KEY}
   base-url: https://api.openai.com/v1
   model: gpt-4o-mini
-  max-tokens: ${MAX_TOKENS_OPEN_AI}
   chatCompletionsEndpoint: /chat/completions
 discord:
   api-key: ${OPENAI_API_KEY_FOR_DISCORD}
@@ -43,3 +41,6 @@ jwt:
   secret: ${JWT_SECRET}
   expirationMs: ${JWT_EXPIRATION_MS}
   refreshExpirationDays: ${JWT_REFRESH_EXPIRATION_DAYS}
+encryption:
+  key: ${ENCRYPTION_KEY}
+  salt: ${SALT}

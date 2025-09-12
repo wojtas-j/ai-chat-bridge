@@ -22,10 +22,8 @@ management:
     health:
       access: unrestricted
 openai:
-  api-key: test-key
   base-url: http://localhost:8089
   model: gpt-4o-mini
-  max-tokens: 100
   chatCompletionsEndpoint: /chat/completions
 discord:
   api-key: test-key
@@ -37,3 +35,6 @@ jwt:
   secret: "dGhpc2lzYXZlcnlsb25nc2VjcmV0a2V5Zm9yc2lnbmluZ2p3dHRva2Vucw=="
   expirationMs: 3600000
   refreshExpirationDays: 1
+encryption:
+  key: test-key
+  salt: salt

@@ -9,10 +9,8 @@ import org.springframework.stereotype.Component;
  * Defines configuration properties for OpenAI API integration in the AI Chat Bridge application.
  * <p>Properties include:</p>
  * <ul>
- *     <li>{@link #apiKey} - the API key used to authenticate with the OpenAI API</li>
  *     <li>{@link #baseUrl} - the base URL for API requests (e.g., https://api.openai.com)</li>
  *     <li>{@link #model} - the default model to use for requests (e.g., "gpt-4")</li>
- *     <li>{@link #maxTokens} - the maximum number of tokens for a single request</li>
  *     <li>{@link #chatCompletionsEndpoint} - the endpoint for chat completions (default: "/chat/completions")</li>
  * </ul>
  * @since 1.0
@@ -23,9 +21,7 @@ import org.springframework.stereotype.Component;
 @Getter
 @Setter
 public class OpenAIProperties {
-    private String apiKey;
     private String baseUrl;
     private String model;
-    private int maxTokens;
     private String chatCompletionsEndpoint = "/chat/completions";
 }

@@ -49,7 +49,7 @@ public class AuthenticationController {
     /**
      * Retrieves information about the currently authenticated user.
      * @param userDetails the authenticated user's details
-     * @return ResponseEntity with the current user's info (username, email, roles)
+     * @return ResponseEntity with the current user's info (username, email, roles, maxTokens)
      * @throws AuthenticationException if the user is not found
      * @since 1.0
      */
@@ -70,12 +70,12 @@ public class AuthenticationController {
         log.info("Retrieving info for authenticated user: {}", userDetails.getUsername());
         UserEntity user = authenticationService.findByUsername(userDetails.getUsername());
         log.info("Successfully retrieved info for user: {}", user.getUsername());
-        return ResponseEntity.ok(new UserDTO(user.getUsername(), user.getEmail(), user.getRoles()));
+        return ResponseEntity.ok(new UserDTO(user.getUsername(), user.getEmail(), user.getRoles(), user.getMaxTokens()));
     }
 
     /**
      * Registers a new user with the provided details.
-     * @param request the registration request with username, email, and password
+     * @param request the registration request with username, email, password, apiKey, and maxTokens
      * @return ResponseEntity with the registered user's details
      * @throws AuthenticationException if registration fails (e.g., username or email already taken)
      * @since 1.0
@@ -93,7 +93,8 @@ public class AuthenticationController {
         log.info("Registering new user: {}", request.username());
         UserEntity user = authenticationService.register(request);
         log.info("User registered successfully: {}", user.getUsername());
-        return ResponseEntity.status(HttpStatus.CREATED).body(new UserDTO(user.getUsername(), user.getEmail(), user.getRoles()));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new UserDTO(user.getUsername(), user.getEmail(), user.getRoles(), user.getMaxTokens()));
     }
 
     /**

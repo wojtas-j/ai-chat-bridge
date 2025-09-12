@@ -1,15 +1,14 @@
 package com.wojtasj.aichatbridge.dto;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 
 /**
  * DTO for user registration requests in the AI Chat Bridge application.
  * @param username the username for the new user
  * @param email the email address for the new user
  * @param password the password for the new user
+ * @param apiKey the OpenAI API key for the user
+ * @param maxTokens the maximum tokens for OpenAI requests
  * @since 1.0
  */
 public record RegisterRequest(
@@ -26,5 +25,12 @@ public record RegisterRequest(
         @Size(min = 8, message = "Password must be at least 8 characters")
         @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$",
                 message = "Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character")
-        String password) {
+        String password,
+
+        @NotBlank(message = "API key cannot be blank")
+        String apiKey,
+
+        @NotNull(message = "Max tokens cannot be null")
+        @Min(value = 1, message = "Max tokens must be at least 1")
+        Integer maxTokens) {
 }

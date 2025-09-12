@@ -2,15 +2,14 @@ package com.wojtasj.aichatbridge.controller;
 
 import com.wojtasj.aichatbridge.dto.MessageDTO;
 import com.wojtasj.aichatbridge.entity.MessageEntity;
-import com.wojtasj.aichatbridge.exception.OpenAIServiceException;
 import com.wojtasj.aichatbridge.repository.MessageRepository;
-import com.wojtasj.aichatbridge.service.OpenAIServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -28,23 +27,12 @@ import org.springframework.web.server.ResponseStatusException;
  * @since 1.0
  */
 @RestController
+@AllArgsConstructor
 @RequestMapping("/api/messages")
 @Slf4j
 public class MessageController {
 
     private final MessageRepository repository;
-    private final OpenAIServiceImpl openAIServiceImpl;
-
-    /**
-     * Constructs a new MessageController with the required dependencies.
-     * @param repository the repository for managing messages
-     * @param openAIServiceImpl the service for interacting with OpenAI
-     * @since 1.0
-     */
-    public MessageController(MessageRepository repository, OpenAIServiceImpl openAIServiceImpl) {
-        this.repository = repository;
-        this.openAIServiceImpl = openAIServiceImpl;
-    }
 
     /**
      * Retrieves all messages from the database with pagination and default sorting by {@code createdAt} in descending order.
@@ -102,44 +90,6 @@ public class MessageController {
         } catch (Exception e) {
             log.error("Failed to create message: {}", e.getMessage(), e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create message", e);
-        }
-    }
-
-    /**
-     * Sends a message to OpenAI and saves the response in the database.
-     * @param messageDTO the message DTO containing the content to send to OpenAI
-     * @return a ResponseEntity containing the AI-generated response as a MessageEntity
-     * @throws OpenAIServiceException if an error occurs during OpenAI processing
-     * @throws ResponseStatusException if an unexpected error occurs
-     * @since 1.0
-     */
-    @Operation(summary = "Sends message to OpenAI")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Message sent to OpenAI and received answer", content = @Content(schema = @Schema(implementation = MessageEntity.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid request data"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized - missing or invalid token"),
-            @ApiResponse(responseCode = "403", description = "Forbidden - no permission to access"),
-            @ApiResponse(responseCode = "500", description = "Server error")
-    })
-    @PreAuthorize("isAuthenticated()")
-    @PostMapping("/openai")
-    public ResponseEntity<MessageEntity> sendToOpenAI(@Valid @RequestBody MessageDTO messageDTO) {
-        log.info("Processing message with OpenAI: {}", messageDTO.content());
-        try {
-            MessageEntity message = new MessageEntity();
-            message.setContent(messageDTO.content());
-            MessageEntity saved = repository.save(message);
-            log.info("Message saved before sending to OpenAI, ID: {}", saved.getId());
-            MessageEntity response = openAIServiceImpl.sendMessageToOpenAI(saved, false);
-            MessageEntity savedResponse = repository.save(response);
-            log.info("OpenAI response saved with ID: {}", savedResponse.getId());
-            return ResponseEntity.ok(savedResponse);
-        } catch (OpenAIServiceException e) {
-            log.error("OpenAI error: {}", e.getMessage(), e);
-            throw e;
-        } catch (Exception e) {
-            log.error("Failed to process OpenAI request: {}", e.getMessage(), e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to process OpenAI request", e);
         }
     }
 }

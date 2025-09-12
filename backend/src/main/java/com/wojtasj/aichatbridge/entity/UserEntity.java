@@ -1,10 +1,8 @@
 package com.wojtasj.aichatbridge.entity;
 
+import com.wojtasj.aichatbridge.utils.ApiKeyConverter;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.annotation.CreatedDate;
@@ -56,6 +54,13 @@ public class UserEntity implements UserDetails {
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private Set<Role> roles = new HashSet<>();
+
+    @Convert(converter = ApiKeyConverter.class)
+    @Column(name = "api_key", nullable = false,  columnDefinition = "TEXT")
+    private String apiKey;
+
+    @Column(name = "max_tokens", nullable = false)
+    private Integer maxTokens;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

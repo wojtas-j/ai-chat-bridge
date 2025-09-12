@@ -36,6 +36,7 @@ public class SecurityConfig {
      * - Public access to /api/auth/login and /api/auth/register for authentication and registration.
      * - Authenticated access to /api/auth/refresh for token refresh.
      * - Authenticated access to /api/messages/** for message-related operations.
+     * - Authenticated access to /api/openai/** for OpenAI interactions.
      * - Disables CSRF, form login, and HTTP basic authentication as JWT is used.
      * - Adds JWT authentication filter before UsernamePasswordAuthenticationFilter.
      * </p>
@@ -56,6 +57,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
                         .requestMatchers("/api/auth/refresh").authenticated()
                         .requestMatchers("/api/messages/**").authenticated()
+                        .requestMatchers("/api/openai/**").authenticated()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/actuator/**").hasRole("ADMIN")
                         .anyRequest().permitAll())

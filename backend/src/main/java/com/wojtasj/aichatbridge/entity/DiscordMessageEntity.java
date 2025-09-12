@@ -23,7 +23,7 @@ public class DiscordMessageEntity extends BaseMessage{
     /**
      * The Discord user's nickname, must not be blank.
      */
-    @Column(name = "discord_nickame", nullable = false)
-    @NotBlank(message = "Discord nickame cannot be blank")
+    @Column(name = "discord_nickname", nullable = false)
+    @NotBlank(message = "Discord nickname cannot be blank")
     private String discordNick;
 }

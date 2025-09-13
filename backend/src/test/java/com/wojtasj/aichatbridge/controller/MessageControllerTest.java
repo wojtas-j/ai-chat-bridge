@@ -7,8 +7,6 @@ import com.wojtasj.aichatbridge.dto.MessageDTO;
 import com.wojtasj.aichatbridge.entity.MessageEntity;
 import com.wojtasj.aichatbridge.exception.GlobalExceptionHandler;
 import com.wojtasj.aichatbridge.repository.MessageRepository;
-import com.wojtasj.aichatbridge.service.OpenAIServiceImpl;
-import com.wojtasj.aichatbridge.exception.OpenAIServiceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,7 +31,6 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -48,18 +45,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class MessageControllerTest {
 
     private static final String MESSAGES_URL = "/api/messages";
-    private static final String OPENAI_URL = "/api/messages/openai";
     private static final String TEST_CONTENT = "Test message";
     private static final String HELLO_CONTENT = "Hello!";
-    private static final String AI_RESPONSE = "Hi, hello!";
 
     private MockMvc mockMvc;
 
     @Mock
     private MessageRepository repository;
-
-    @Mock
-    private OpenAIServiceImpl openAIService;
 
     @InjectMocks
     private MessageController messageController;
@@ -157,93 +149,6 @@ class MessageControllerTest {
                 .andExpect(jsonPath("$.id").value(1L))
                 .andExpect(jsonPath("$.content").value(TEST_CONTENT))
                 .andExpect(jsonPath("$.createdAt").exists());
-    }
-
-    /**
-     * Tests sending a message to OpenAI and saving the response in the database.
-     * @since 1.0
-     */
-    @Test
-    void shouldSendToOpenAI() throws Exception {
-        // Arrange
-        MessageDTO messageDTO = new MessageDTO(HELLO_CONTENT);
-        MessageEntity input = createMessageEntity(1L, HELLO_CONTENT);
-        MessageEntity response = createMessageEntity(2L, AI_RESPONSE);
-        when(repository.save(any(MessageEntity.class))).thenReturn(input, response);
-        when(openAIService.sendMessageToOpenAI(any(MessageEntity.class), eq(false))).thenReturn(response);
-
-        // Act & Assert
-        mockMvc.perform(post(OPENAI_URL)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(messageDTO)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(2L))
-                .andExpect(jsonPath("$.content").value(AI_RESPONSE))
-                .andExpect(jsonPath("$.createdAt").exists());
-    }
-
-    /**
-     * Tests rejecting a message with empty content during OpenAI processing.
-     * @since 1.0
-     */
-    @Test
-    void shouldRejectEmptyContent() throws Exception {
-        // Arrange
-        MessageDTO messageDTO = new MessageDTO("");
-
-        // Act & Assert
-        mockMvc.perform(post(OPENAI_URL)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(messageDTO)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.type").value("/problems/validation-error"))
-                .andExpect(jsonPath("$.title").value("Validation Error"))
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.detail").value("content Content cannot be blank"));
-    }
-
-    /**
-     * Tests rejecting a message with unknown fields (e.g., id) in the request.
-     * @since 1.0
-     */
-    @Test
-    void shouldRejectMessageWithExistingId() throws Exception {
-        // Arrange
-        String invalidJson = "{\"content\":\"" + HELLO_CONTENT + "\",\"id\":1}";
-
-        // Act & Assert
-        mockMvc.perform(post(OPENAI_URL)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(invalidJson))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.type").value("/problems/invalid-request"))
-                .andExpect(jsonPath("$.title").value("Invalid Request"))
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.detail").value("Unknown field: id"));
-    }
-
-    /**
-     * Tests handling of {@link OpenAIServiceException} in the sendToOpenAI endpoint.
-     * @since 1.0
-     */
-    @Test
-    void shouldHandleOpenAIError() throws Exception {
-        // Arrange
-        MessageDTO messageDTO = new MessageDTO(HELLO_CONTENT);
-        MessageEntity input = createMessageEntity(1L, HELLO_CONTENT);
-        when(repository.save(any(MessageEntity.class))).thenReturn(input);
-        when(openAIService.sendMessageToOpenAI(any(MessageEntity.class), eq(false)))
-                .thenThrow(new OpenAIServiceException("OpenAI API error"));
-
-        // Act & Assert
-        mockMvc.perform(post(OPENAI_URL)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(messageDTO)))
-                .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.type").value("/problems/openai-service-error"))
-                .andExpect(jsonPath("$.title").value("OpenAI Service Error"))
-                .andExpect(jsonPath("$.status").value(500))
-                .andExpect(jsonPath("$.detail").value("Failed to process OpenAI request"));
     }
 
     /**

@@ -42,6 +42,8 @@ class SecurityConfigTest {
     private static final String TEST_EMAIL = "test@example.com";
     private static final String TEST_PASSWORD = "Password123!";
     private static final String TEST_REFRESH_TOKEN = "refresh-token";
+    private static final String TEST_API_KEY = "test-api-key";
+    private static final Integer MAX_TOKENS = 100;
 
     @Autowired
     private MockMvc mockMvc;
@@ -74,6 +76,8 @@ class SecurityConfigTest {
                 .email(TEST_EMAIL)
                 .password(passwordEncoder.encode(TEST_PASSWORD))
                 .roles(Set.of(Role.USER))
+                .apiKey(TEST_API_KEY)
+                .maxTokens(MAX_TOKENS)
                 .build();
         userRepository.save(user);
 
@@ -126,9 +130,11 @@ class SecurityConfigTest {
             {
                 "username": "newuser",
                 "email": "newuser@example.com",
-                "password": "Password123!"
+                "password": "%s",
+                "apiKey": "%s",
+                "maxTokens": "%s"
             }
-        """;
+        """.formatted(TEST_PASSWORD, TEST_API_KEY, MAX_TOKENS);
 
         // Act & Assert
         mockMvc.perform(post(AUTH_URL + "/register")

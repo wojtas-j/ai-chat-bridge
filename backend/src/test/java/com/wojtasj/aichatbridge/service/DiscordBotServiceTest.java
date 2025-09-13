@@ -22,12 +22,14 @@ import reactor.test.StepVerifier;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
- * Tests the functionality of {@link DiscordBotServiceImpl} in the AI Chat Bridge application.
+ * Unit tests for {@link DiscordBotServiceImpl} in the AI Chat Bridge application.
  * @since 1.0
  */
 @ExtendWith(MockitoExtension.class)
@@ -92,11 +94,12 @@ class DiscordBotServiceTest {
         when(discordMessageRepository.save(any(DiscordMessageEntity.class)))
                 .thenReturn(userMessage)
                 .thenReturn(aiResponse);
-        when(openAIService.sendMessageToOpenAI(any(DiscordMessageEntity.class), eq(true))).thenReturn(aiResponse);
+        when(openAIService.sendMessageToOpenAI(any(DiscordMessageEntity.class), eq(true), eq(null), eq(null)))
+                .thenReturn(aiResponse);
 
         MessageCreateMono mockCreateMono = mock(MessageCreateMono.class);
-        doReturn(mockCreateMono).when(messageChannel).createMessage(eq(AI_RESPONSE));
-        doReturn(Mono.just(responseMessage)).when(mockCreateMono).onErrorMap(any());
+        when(messageChannel.createMessage(eq(AI_RESPONSE))).thenReturn(mockCreateMono);
+        when(mockCreateMono.onErrorMap(any())).thenReturn(Mono.just(responseMessage));
 
         // Act
         Mono<Message> result = discordBotService.handleMessageCreateEvent(messageCreateEvent);
@@ -107,7 +110,7 @@ class DiscordBotServiceTest {
                 .verifyComplete();
 
         verify(discordMessageRepository, times(2)).save(any(DiscordMessageEntity.class));
-        verify(openAIService).sendMessageToOpenAI(any(DiscordMessageEntity.class), eq(true));
+        verify(openAIService).sendMessageToOpenAI(any(DiscordMessageEntity.class), eq(true), eq(null), eq(null));
         verify(messageChannel).createMessage(eq(AI_RESPONSE));
         verify(mockCreateMono).onErrorMap(any());
     }
@@ -167,7 +170,7 @@ class DiscordBotServiceTest {
         when(user.getUsername()).thenReturn(DISCORD_NICK);
         when(message.getChannel()).thenReturn(Mono.just(messageChannel));
         when(discordMessageRepository.save(any(DiscordMessageEntity.class))).thenReturn(userMessage);
-        when(openAIService.sendMessageToOpenAI(any(DiscordMessageEntity.class), eq(true)))
+        when(openAIService.sendMessageToOpenAI(any(DiscordMessageEntity.class), eq(true), eq(null), eq(null)))
                 .thenThrow(new OpenAIServiceException("OpenAI API error"));
 
         // Act
@@ -178,7 +181,7 @@ class DiscordBotServiceTest {
                 .verifyComplete();
 
         verify(discordMessageRepository).save(any(DiscordMessageEntity.class));
-        verify(openAIService).sendMessageToOpenAI(any(DiscordMessageEntity.class), eq(true));
+        verify(openAIService).sendMessageToOpenAI(any(DiscordMessageEntity.class), eq(true), eq(null), eq(null));
         verifyNoInteractions(messageChannel);
     }
 
@@ -229,6 +232,30 @@ class DiscordBotServiceTest {
         // Assert
         StepVerifier.create(result)
                 .verifyComplete();
+
+        verifyNoInteractions(discordMessageRepository, openAIService, messageChannel);
+    }
+
+    /**
+     * Tests handling of a message when the author is not present in the event.
+     * @since 1.0
+     */
+    @SuppressWarnings("ReactiveStreamsUnusedPublisher")
+    @Test
+    void shouldHandleMissingAuthor() {
+        // Arrange
+        String inputMessage = BOT_PREFIX + USER_MESSAGE;
+        when(message.getContent()).thenReturn(inputMessage);
+        when(messageCreateEvent.getMessage()).thenReturn(message);
+        when(message.getAuthor()).thenReturn(Optional.empty());
+
+        // Act & Assert
+        DiscordServiceException ex = assertThrows(
+                DiscordServiceException.class,
+                () -> discordBotService.handleMessageCreateEvent(messageCreateEvent)
+        );
+
+        assertThat(ex.getMessage()).contains("Failed to retrieve Discord username");
 
         verifyNoInteractions(discordMessageRepository, openAIService, messageChannel);
     }

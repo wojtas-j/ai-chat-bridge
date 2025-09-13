@@ -1,8 +1,7 @@
 package com.wojtasj.aichatbridge.entity;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -12,10 +11,13 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * @since 1.0
  */
 @Entity
-@Table(name = "message")
+@Table(name = "messages")
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Slf4j
-public class MessageEntity extends BaseMessage{
+public class MessageEntity extends BaseMessage {
 }

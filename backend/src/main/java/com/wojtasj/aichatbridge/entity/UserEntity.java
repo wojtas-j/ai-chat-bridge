@@ -56,7 +56,7 @@ public class UserEntity implements UserDetails {
     private Set<Role> roles = new HashSet<>();
 
     @Convert(converter = ApiKeyConverter.class)
-    @Column(name = "api_key", nullable = false,  columnDefinition = "TEXT")
+    @Column(name = "api_key", nullable = false, columnDefinition = "TEXT")
     private String apiKey;
 
     @Column(name = "max_tokens", nullable = false)

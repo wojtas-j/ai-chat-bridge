@@ -48,6 +48,10 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+/**
+ * Tests the functionality of {@link AuthenticationController} in the AI Chat Bridge application.
+ * @since 1.0
+ */
 class AuthenticationControllerTest {
 
     private static final String AUTH_URL = "/api/auth";
@@ -57,6 +61,8 @@ class AuthenticationControllerTest {
     private static final String TEST_TOKEN = "jwt-token";
     private static final String TEST_REFRESH_TOKEN = "refresh-token";
     private static final String INVALID_TOKEN = "invalid-token";
+    private static final String TEST_API_KEY = "testToken";
+    private static final Integer MAX_TOKENS = 100;
 
     private MockMvc mockMvc;
     private AuthenticationService authenticationService;
@@ -135,8 +141,11 @@ class AuthenticationControllerTest {
         @Test
         @WithMockUser(username = TEST_USERNAME)
         void shouldGetCurrentUserSuccessfully() throws Exception {
+            // Arrange
             when(authenticationService.findByUsername(TEST_USERNAME)).thenReturn(userEntity);
 
+
+            // Act & Assert
             mockMvc.perform(get(AUTH_URL + "/me")
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
@@ -145,6 +154,7 @@ class AuthenticationControllerTest {
                     .andExpect(jsonPath("$.roles", hasSize(1)))
                     .andExpect(jsonPath("$.roles[0]").value("USER"));
 
+            // Verify
             verify(authenticationService).findByUsername(TEST_USERNAME);
         }
 
@@ -154,8 +164,10 @@ class AuthenticationControllerTest {
          */
         @Test
         void shouldRejectGetCurrentUserWhenNotAuthenticated() throws Exception {
+            // Arrange
             SecurityContextHolder.clearContext();
 
+            // Act & Assert
             mockMvc.perform(get(AUTH_URL + "/me")
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isForbidden())
@@ -163,6 +175,8 @@ class AuthenticationControllerTest {
                     .andExpect(jsonPath("$.title").value("Access Denied"))
                     .andExpect(jsonPath("$.status").value(403))
                     .andExpect(jsonPath("$.detail").value("You do not have permission to access this resource"));
+
+            // Verify
             verify(authenticationService, never()).findByUsername(any());
         }
 
@@ -173,8 +187,10 @@ class AuthenticationControllerTest {
         @Test
         @WithMockUser(username = TEST_USERNAME)
         void shouldRejectGetCurrentUserWhenUserNotFound() throws Exception {
+            // Arrange
             when(authenticationService.findByUsername(TEST_USERNAME)).thenThrow(new AuthenticationException("User not found: " + TEST_USERNAME));
 
+            // Act & Assert
             mockMvc.perform(get(AUTH_URL + "/me")
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isUnauthorized())
@@ -182,6 +198,8 @@ class AuthenticationControllerTest {
                     .andExpect(jsonPath("$.title").value("Authentication Failed"))
                     .andExpect(jsonPath("$.status").value(401))
                     .andExpect(jsonPath("$.detail").value(containsString("User not found: " + TEST_USERNAME)));
+
+            // Verify
             verify(authenticationService).findByUsername(TEST_USERNAME);
         }
     }
@@ -194,9 +212,11 @@ class AuthenticationControllerTest {
          */
         @Test
         void shouldRegisterUserSuccessfully() throws Exception {
-            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, TEST_PASSWORD);
+            // Arrange
+            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, TEST_PASSWORD, TEST_API_KEY, MAX_TOKENS);
             when(authenticationService.register(request)).thenReturn(userEntity);
 
+            // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
@@ -205,6 +225,8 @@ class AuthenticationControllerTest {
                     .andExpect(jsonPath("$.email").value(TEST_EMAIL))
                     .andExpect(jsonPath("$.roles", hasSize(1)))
                     .andExpect(jsonPath("$.roles[0]").value("USER"));
+
+            // Verify
             verify(authenticationService).register(request);
         }
 
@@ -214,8 +236,10 @@ class AuthenticationControllerTest {
          */
         @Test
         void shouldRejectRegistrationWithInvalidData() throws Exception {
-            RegisterRequest request = new RegisterRequest("", TEST_EMAIL, TEST_PASSWORD);
+            // Arrange
+            RegisterRequest request = new RegisterRequest("", TEST_EMAIL, TEST_PASSWORD, TEST_API_KEY, MAX_TOKENS);
 
+            // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
@@ -224,6 +248,8 @@ class AuthenticationControllerTest {
                     .andExpect(jsonPath("$.title").value("Validation Error"))
                     .andExpect(jsonPath("$.status").value(400))
                     .andExpect(jsonPath("$.detail").value(containsString("username Username cannot be blank")));
+
+            // Verify
             verify(authenticationService, never()).register(any());
         }
 
@@ -233,10 +259,12 @@ class AuthenticationControllerTest {
          */
         @Test
         void shouldRejectRegistrationWhenUsernameTaken() throws Exception {
-            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, TEST_PASSWORD);
+            // Arrange
+            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, TEST_PASSWORD, TEST_API_KEY, MAX_TOKENS);
             when(authenticationService.register(request))
                     .thenThrow(new UserAlreadyExistsException("Username already taken"));
 
+            // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
@@ -245,6 +273,8 @@ class AuthenticationControllerTest {
                     .andExpect(jsonPath("$.title").value("Registration Failed"))
                     .andExpect(jsonPath("$.status").value(409))
                     .andExpect(jsonPath("$.detail").value("Username already taken"));
+
+            // Verify
             verify(authenticationService).register(request);
         }
 
@@ -254,8 +284,10 @@ class AuthenticationControllerTest {
          */
         @Test
         void shouldRejectRegistrationWithInvalidPassword() throws Exception {
-            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, "invalid");
+            // Arrange
+            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, "invalid", TEST_API_KEY, MAX_TOKENS);
 
+            // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
@@ -264,6 +296,8 @@ class AuthenticationControllerTest {
                     .andExpect(jsonPath("$.title").value("Validation Error"))
                     .andExpect(jsonPath("$.status").value(400))
                     .andExpect(jsonPath("$.detail").value(containsString("password Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character")));
+
+            // Verify
             verify(authenticationService, never()).register(any());
         }
     }
@@ -276,6 +310,7 @@ class AuthenticationControllerTest {
          */
         @Test
         void shouldLoginUserSuccessfully() throws Exception {
+            // Arrange
             LoginRequest request = new LoginRequest(TEST_USERNAME, TEST_PASSWORD);
             when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                     .thenReturn(authentication);
@@ -284,12 +319,15 @@ class AuthenticationControllerTest {
             when(refreshTokenService.generateRefreshToken(userEntity))
                     .thenReturn(createRefreshTokenEntity(TEST_REFRESH_TOKEN, userEntity));
 
+            // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.accessToken").value(TEST_TOKEN))
                     .andExpect(jsonPath("$.refreshToken").value(TEST_REFRESH_TOKEN));
+
+            // Verify
             verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
             verify(jwtTokenProvider).generateToken(authentication);
             verify(authenticationService).findByUsername(TEST_USERNAME);
@@ -302,10 +340,12 @@ class AuthenticationControllerTest {
          */
         @Test
         void shouldRejectLoginWithInvalidCredentials() throws Exception {
+            // Arrange
             LoginRequest request = new LoginRequest(TEST_USERNAME, "wrongpassword");
             when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                     .thenThrow(new BadCredentialsException("Invalid username or password"));
 
+            // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
@@ -314,6 +354,8 @@ class AuthenticationControllerTest {
                     .andExpect(jsonPath("$.title").value("Authentication Failed"))
                     .andExpect(jsonPath("$.status").value(401))
                     .andExpect(jsonPath("$.detail").value("Invalid username or password"));
+
+            // Verify
             verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
             verify(jwtTokenProvider, never()).generateToken(any());
             verify(authenticationService, never()).findByUsername(any());
@@ -326,8 +368,10 @@ class AuthenticationControllerTest {
          */
         @Test
         void shouldRejectLoginWithInvalidData() throws Exception {
+            // Arrange
             LoginRequest request = new LoginRequest("", TEST_PASSWORD);
 
+            // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
@@ -336,6 +380,8 @@ class AuthenticationControllerTest {
                     .andExpect(jsonPath("$.title").value("Validation Error"))
                     .andExpect(jsonPath("$.status").value(400))
                     .andExpect(jsonPath("$.detail").value(containsString("username Username or email cannot be blank")));
+
+            // Verify
             verify(authenticationManager, never()).authenticate(any());
             verify(jwtTokenProvider, never()).generateToken(any());
             verify(authenticationService, never()).findByUsername(any());
@@ -352,6 +398,7 @@ class AuthenticationControllerTest {
         @Test
         @WithMockUser(username = TEST_USERNAME)
         void shouldRefreshTokenSuccessfully() throws Exception {
+            // Arrange
             RefreshTokenRequest request = new RefreshTokenRequest(TEST_REFRESH_TOKEN);
             RefreshTokenEntity refreshToken = createRefreshTokenEntity(TEST_REFRESH_TOKEN, userEntity);
             when(refreshTokenService.validateRefreshToken(TEST_REFRESH_TOKEN)).thenReturn(refreshToken);
@@ -359,12 +406,15 @@ class AuthenticationControllerTest {
                     .thenReturn(createRefreshTokenEntity("new-refresh-token", userEntity));
             when(jwtTokenProvider.generateToken(any(Authentication.class))).thenReturn("new-access-token");
 
+            // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/refresh")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.accessToken").value("new-access-token"))
                     .andExpect(jsonPath("$.refreshToken").value("new-refresh-token"));
+
+            // Verify
             verify(refreshTokenService).validateRefreshToken(TEST_REFRESH_TOKEN);
             verify(refreshTokenService).deleteByUser(userEntity);
             verify(refreshTokenService).generateRefreshToken(userEntity);
@@ -378,9 +428,11 @@ class AuthenticationControllerTest {
         @Test
         @WithMockUser(username = TEST_USERNAME)
         void shouldRejectRefreshWithInvalidToken() throws Exception {
+            // Arrange
             RefreshTokenRequest request = new RefreshTokenRequest(INVALID_TOKEN);
             when(refreshTokenService.validateRefreshToken(INVALID_TOKEN)).thenReturn(null);
 
+            // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/refresh")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
@@ -389,6 +441,8 @@ class AuthenticationControllerTest {
                     .andExpect(jsonPath("$.title").value("Authentication Failed"))
                     .andExpect(jsonPath("$.status").value(401))
                     .andExpect(jsonPath("$.detail").value("Invalid refresh token"));
+
+            // Verify
             verify(refreshTokenService).validateRefreshToken(INVALID_TOKEN);
             verify(refreshTokenService, never()).deleteByUser(any());
             verify(refreshTokenService, never()).generateRefreshToken(any());
@@ -402,6 +456,7 @@ class AuthenticationControllerTest {
         @Test
         @WithMockUser(username = TEST_USERNAME)
         void shouldRejectRefreshWhenUserDoesNotMatch() throws Exception {
+            // Arrange
             RefreshTokenRequest request = new RefreshTokenRequest(TEST_REFRESH_TOKEN);
             UserEntity otherUser = UserEntity.builder()
                     .username("otheruser")
@@ -412,6 +467,7 @@ class AuthenticationControllerTest {
             RefreshTokenEntity refreshToken = createRefreshTokenEntity(TEST_REFRESH_TOKEN, otherUser);
             when(refreshTokenService.validateRefreshToken(TEST_REFRESH_TOKEN)).thenReturn(refreshToken);
 
+            // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/refresh")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
@@ -420,6 +476,8 @@ class AuthenticationControllerTest {
                     .andExpect(jsonPath("$.title").value("Authentication Failed"))
                     .andExpect(jsonPath("$.status").value(401))
                     .andExpect(jsonPath("$.detail").value("Refresh token does not match authenticated user"));
+
+            // Verify
             verify(refreshTokenService).validateRefreshToken(TEST_REFRESH_TOKEN);
             verify(refreshTokenService, never()).deleteByUser(any());
             verify(refreshTokenService, never()).generateRefreshToken(any());
@@ -432,9 +490,11 @@ class AuthenticationControllerTest {
          */
         @Test
         void shouldRejectRefreshWhenNotAuthenticated() throws Exception {
+            // Arrange
             SecurityContextHolder.clearContext();
             RefreshTokenRequest request = new RefreshTokenRequest(TEST_REFRESH_TOKEN);
 
+            // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/refresh")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
@@ -443,6 +503,8 @@ class AuthenticationControllerTest {
                     .andExpect(jsonPath("$.title").value("Access Denied"))
                     .andExpect(jsonPath("$.status").value(403))
                     .andExpect(jsonPath("$.detail").value("You do not have permission to access this resource"));
+
+            // Verify
             verify(refreshTokenService, never()).validateRefreshToken(any());
         }
 
@@ -453,8 +515,10 @@ class AuthenticationControllerTest {
         @Test
         @WithMockUser(username = TEST_USERNAME)
         void shouldRejectRefreshWithInvalidData() throws Exception {
+            // Arrange
             RefreshTokenRequest request = new RefreshTokenRequest("");
 
+            // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/refresh")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
@@ -463,6 +527,8 @@ class AuthenticationControllerTest {
                     .andExpect(jsonPath("$.title").value("Validation Error"))
                     .andExpect(jsonPath("$.status").value(400))
                     .andExpect(jsonPath("$.detail").value(containsString("refreshToken Refresh token cannot be blank")));
+
+            // Verify
             verify(refreshTokenService, never()).validateRefreshToken(any());
         }
     }
@@ -476,12 +542,16 @@ class AuthenticationControllerTest {
         @Test
         @WithMockUser(username = TEST_USERNAME)
         void shouldLogoutUserSuccessfully() throws Exception {
+            // Arrange
             when(authenticationService.findByUsername(TEST_USERNAME)).thenReturn(userEntity);
             doNothing().when(refreshTokenService).deleteByUser(userEntity);
 
+            // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/logout")
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk());
+
+            // Verify
             verify(authenticationService).findByUsername(TEST_USERNAME);
             verify(refreshTokenService).deleteByUser(userEntity);
         }
@@ -493,8 +563,10 @@ class AuthenticationControllerTest {
         @Test
         @WithMockUser(username = TEST_USERNAME)
         void shouldRejectLogoutWhenUserNotFound() throws Exception {
+            // Arrange
             when(authenticationService.findByUsername(TEST_USERNAME)).thenThrow(new AuthenticationException("User not found: " + TEST_USERNAME));
 
+            // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/logout")
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isUnauthorized())
@@ -502,6 +574,8 @@ class AuthenticationControllerTest {
                     .andExpect(jsonPath("$.title").value("Authentication Failed"))
                     .andExpect(jsonPath("$.status").value(401))
                     .andExpect(jsonPath("$.detail").value(containsString("User not found: " + TEST_USERNAME)));
+
+            // Verify
             verify(authenticationService).findByUsername(TEST_USERNAME);
             verify(refreshTokenService, never()).deleteByUser(any());
         }
@@ -512,8 +586,10 @@ class AuthenticationControllerTest {
          */
         @Test
         void shouldRejectLogoutWhenNotAuthenticated() throws Exception {
+            // Arrange
             SecurityContextHolder.clearContext();
 
+            // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/logout")
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isForbidden())
@@ -521,11 +597,127 @@ class AuthenticationControllerTest {
                     .andExpect(jsonPath("$.title").value("Access Denied"))
                     .andExpect(jsonPath("$.status").value(403))
                     .andExpect(jsonPath("$.detail").value("You do not have permission to access this resource"));
+
+            // Verify
             verify(authenticationService, never()).findByUsername(any());
             verify(refreshTokenService, never()).deleteByUser(any());
         }
     }
 
+    @Nested
+    class ApiKeyAndMaxTokensTests {
+        /**
+         * Tests registering a user with an invalid API key (e.g., empty).
+         *
+         * @since 1.0
+         */
+        @Test
+        void shouldRejectRegistrationWithEmptyApiKey() throws Exception {
+            // Arrange
+            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, TEST_PASSWORD, "", MAX_TOKENS);
+
+            // Act & Assert
+            mockMvc.perform(post(AUTH_URL + "/register")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andDo(result ->
+                            System.out.println("Response JSON: " + result.getResponse().getContentAsString())
+                    )
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.type").value("/problems/validation-error"))
+                    .andExpect(jsonPath("$.title").value("Validation Error"))
+                    .andExpect(jsonPath("$.status").value(400))
+                    .andExpect(jsonPath("$.detail").value(containsString("apiKey API key cannot be blank")));
+
+            // Verify
+            verify(authenticationService, never()).register(any());
+        }
+
+
+        /**
+         * Tests registering a user with an invalid maxTokens value (e.g., negative).
+         *
+         * @since 1.0
+         */
+        @Test
+        void shouldRejectRegistrationWithNegativeMaxTokens() throws Exception {
+            // Arrange
+            @SuppressWarnings("DataFlowIssue")
+            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, TEST_PASSWORD, TEST_API_KEY, -1);
+
+            // Act & Assert
+            mockMvc.perform(post(AUTH_URL + "/register")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.type").value("/problems/validation-error"))
+                    .andExpect(jsonPath("$.title").value("Validation Error"))
+                    .andExpect(jsonPath("$.status").value(400))
+                    .andExpect(jsonPath("$.detail").value(containsString("maxTokens Max tokens must be at least 1")));
+
+            // Verify
+            verify(authenticationService, never()).register(any());
+        }
+
+        /**
+         * Tests registering a user with an invalid maxTokens value (e.g., null).
+         *
+         * @since 1.0
+         */
+        @Test
+        void shouldRejectRegistrationWithNullMaxTokens() throws Exception {
+            // Arrange
+            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, TEST_PASSWORD, TEST_API_KEY, null);
+
+            // Act & Assert
+            mockMvc.perform(post(AUTH_URL + "/register")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.type").value("/problems/validation-error"))
+                    .andExpect(jsonPath("$.title").value("Validation Error"))
+                    .andExpect(jsonPath("$.status").value(400))
+                    .andExpect(jsonPath("$.detail").value(containsString("maxTokens Max tokens cannot be null")));
+
+            // Verify
+            verify(authenticationService, never()).register(any());
+        }
+
+        /**
+         * Tests retrieving current user's API key and maxTokens successfully.
+         *
+         * @since 1.0
+         */
+        @Test
+        @WithMockUser(username = TEST_USERNAME)
+        void shouldGetApiKeyAndMaxTokensSuccessfully() throws Exception {
+            // Arrange
+            userEntity.setApiKey(TEST_API_KEY);
+            userEntity.setMaxTokens(MAX_TOKENS);
+            when(authenticationService.findByUsername(TEST_USERNAME)).thenReturn(userEntity);
+
+            // Act & Assert
+            mockMvc.perform(get(AUTH_URL + "/me")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.username").value(TEST_USERNAME))
+                    .andExpect(jsonPath("$.email").value(TEST_EMAIL))
+                    .andExpect(jsonPath("$.maxTokens").value(MAX_TOKENS))
+                    .andExpect(jsonPath("$.roles", hasSize(1)))
+                    .andExpect(jsonPath("$.roles[0]").value("USER"));
+
+            // Verify
+            verify(authenticationService).findByUsername(TEST_USERNAME);
+        }
+    }
+
+    /**
+     * Creates a mock MessageEntity for testing purposes.
+     * @param token the refresh token.
+     * @param user the UserEntity object.
+     * @return a MessageEntity with the specified ID and content
+     * @since 1.0
+     */
     private RefreshTokenEntity createRefreshTokenEntity(String token, UserEntity user) {
         return RefreshTokenEntity.builder()
                 .token(token)

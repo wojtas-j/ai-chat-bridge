@@ -36,6 +36,8 @@ class AuthenticationServiceTest {
     private static final String TEST_EMAIL = "testuser@example.com";
     private static final String TEST_PASSWORD = "password123";
     private static final String ENCODED_PASSWORD = "encodedPassword123";
+    private static final String TEST_API_KEY = "testToken";
+    private static final Integer MAX_TOKENS = 100;
 
     @Mock
     private UserRepository userRepository;
@@ -55,15 +57,22 @@ class AuthenticationServiceTest {
      */
     @BeforeEach
     void setUp() {
-        registerRequest = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, TEST_PASSWORD);
+        registerRequest = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, TEST_PASSWORD, TEST_API_KEY, MAX_TOKENS);
         userEntity = UserEntity.builder()
                 .username(TEST_USERNAME)
                 .email(TEST_EMAIL)
                 .password(ENCODED_PASSWORD)
                 .roles(Set.of(Role.USER))
+                .apiKey(TEST_API_KEY)
+                .maxTokens(MAX_TOKENS)
                 .build();
     }
 
+    /**
+     * Tests successful user registration.
+     * @since 1.0
+     */
+    @SuppressWarnings({"ConstantConditions", "DataFlowIssue"})
     @Test
     void shouldRegisterUserSuccessfully() {
         // Arrange
@@ -81,12 +90,18 @@ class AuthenticationServiceTest {
         assertThat(result.getEmail()).isEqualTo(TEST_EMAIL);
         assertThat(result.getPassword()).isEqualTo(ENCODED_PASSWORD);
         assertThat(result.getRoles()).hasSize(1).contains(Role.USER);
+        assertThat(result.getApiKey()).isEqualTo(TEST_API_KEY);
+        assertThat(result.getMaxTokens()).isEqualTo(MAX_TOKENS);
         verify(userRepository).findByUsername(TEST_USERNAME);
         verify(userRepository).findByEmail(TEST_EMAIL);
         verify(passwordEncoder).encode(TEST_PASSWORD);
         verify(userRepository).save(any(UserEntity.class));
     }
 
+    /**
+     * Tests throwing AuthenticationException when username is already taken during registration.
+     * @since 1.0
+     */
     @Test
     void shouldThrowAuthenticationExceptionForTakenUsername() {
         // Arrange
@@ -102,6 +117,10 @@ class AuthenticationServiceTest {
         verify(userRepository, never()).save(any(UserEntity.class));
     }
 
+    /**
+     * Tests throwing AuthenticationException when email is already taken during registration.
+     * @since 1.0
+     */
     @Test
     void shouldThrowAuthenticationExceptionForTakenEmail() {
         // Arrange
@@ -118,6 +137,10 @@ class AuthenticationServiceTest {
         verify(userRepository, never()).save(any(UserEntity.class));
     }
 
+    /**
+     * Tests finding a user by username successfully.
+     * @since 1.0
+     */
     @Test
     void shouldFindByUsernameSuccessfully() {
         // Arrange
@@ -132,9 +155,15 @@ class AuthenticationServiceTest {
         assertThat(result.getEmail()).isEqualTo(TEST_EMAIL);
         assertThat(result.getPassword()).isEqualTo(ENCODED_PASSWORD);
         assertThat(result.getRoles()).hasSize(1).contains(Role.USER);
+        assertThat(result.getApiKey()).isEqualTo(TEST_API_KEY);
+        assertThat(result.getMaxTokens()).isEqualTo(MAX_TOKENS);
         verify(userRepository).findByUsername(TEST_USERNAME);
     }
 
+    /**
+     * Tests throwing AuthenticationException when user is not found by username.
+     * @since 1.0
+     */
     @Test
     void shouldThrowAuthenticationExceptionForNonExistentUsername() {
         // Arrange
@@ -147,6 +176,10 @@ class AuthenticationServiceTest {
         verify(userRepository).findByUsername(TEST_USERNAME);
     }
 
+    /**
+     * Tests loading user details by username successfully.
+     * @since 1.0
+     */
     @Test
     void shouldLoadUserByUsernameSuccessfully() {
         // Arrange
@@ -164,6 +197,10 @@ class AuthenticationServiceTest {
         verify(userRepository).findByUsernameOrEmail(TEST_USERNAME, TEST_USERNAME);
     }
 
+    /**
+     * Tests loading user details by email successfully.
+     * @since 1.0
+     */
     @Test
     void shouldLoadUserByEmailSuccessfully() {
         // Arrange
@@ -181,6 +218,10 @@ class AuthenticationServiceTest {
         verify(userRepository).findByUsernameOrEmail(TEST_EMAIL, TEST_EMAIL);
     }
 
+    /**
+     * Tests throwing UsernameNotFoundException when user is not found by username or email.
+     * @since 1.0
+     */
     @Test
     void shouldThrowUsernameNotFoundExceptionForNonExistentUser() {
         // Arrange

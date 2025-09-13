@@ -228,6 +228,8 @@ public class OpenAIServiceImpl implements OpenAIService {
             }
 
             return firstChoice.get("message").get("content").asText();
+        } catch (OpenAIServiceException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Error parsing OpenAI response: {}, cause: {}", response, e.getMessage(), e);
             throw new OpenAIServiceException("Error parsing OpenAI response", e);
@@ -248,7 +250,6 @@ public class OpenAIServiceImpl implements OpenAIService {
     /**
      * Internal record to hold API key and max tokens' configuration.
      */
-    private record ApiConfig(String apiKey, int maxTokens){
-
+    private record ApiConfig(String apiKey, int maxTokens) {
     }
 }

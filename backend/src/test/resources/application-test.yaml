@@ -36,5 +36,5 @@ jwt:
   expirationMs: 3600000
   refreshExpirationDays: 1
 encryption:
-  key: test-key
-  salt: salt
+  key: testkey12312321
+  salt: deadbeef12345678

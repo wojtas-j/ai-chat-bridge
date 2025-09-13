@@ -37,10 +37,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(OpenAIServiceException.class)
     public ResponseEntity<Map<String, Object>> handleOpenAIServiceException(OpenAIServiceException ex, HttpServletRequest request) {
         log.error("OpenAI error: {}", ex.getMessage(), ex);
+        HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
+        if (ex.getMessage().contains("Invalid OpenAI API key")) {
+            status = HttpStatus.BAD_REQUEST;
+        } else if (ex.getMessage().contains("TooManyRequests")) {
+            status = HttpStatus.TOO_MANY_REQUESTS;
+        }
         return buildProblemDetailsResponse(
-                HttpStatus.INTERNAL_SERVER_ERROR,
+                status,
                 "OpenAI Service Error",
-                "Failed to process OpenAI request",
+                ex.getMessage(),
                 "/problems/openai-service-error",
                 request.getRequestURI()
         );

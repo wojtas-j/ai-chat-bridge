@@ -51,7 +51,6 @@ class JwtTokenProviderTest {
     private String secretKey;
     private SecretKey signingKey;
     private long expirationMs;
-    
 
     /**
      * Sets up the test environment with mock UserEntity, Authentication, and JWT properties.

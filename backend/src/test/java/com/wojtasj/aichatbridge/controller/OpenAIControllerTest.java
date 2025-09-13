@@ -105,8 +105,8 @@ class OpenAIControllerTest {
                 .maxTokens(TEST_MAX_TOKENS)
                 .build();
 
-        inputMessage = createMessageEntity(1L, TEST_MESSAGE_CONTENT);
-        responseMessage = createMessageEntity(2L, TEST_RESPONSE_CONTENT);
+        inputMessage = createMessageEntity(1L, TEST_MESSAGE_CONTENT, userEntity);
+        responseMessage = createMessageEntity(2L, TEST_RESPONSE_CONTENT, userEntity);
 
         UserDetails userDetails = new User(TEST_USERNAME, TEST_PASSWORD, Collections.emptyList());
         Authentication authentication = new UsernamePasswordAuthenticationToken(
@@ -154,7 +154,7 @@ class OpenAIControllerTest {
             MessageDTO messageDTO = new MessageDTO(TEST_MESSAGE_CONTENT);
             when(authenticationService.findByUsername(TEST_USERNAME)).thenReturn(userEntity);
             when(messageRepository.save(any(MessageEntity.class))).thenReturn(inputMessage, responseMessage);
-            when(openAIService.sendMessageToOpenAI(eq(inputMessage), eq(false), eq(TEST_API_KEY), eq(TEST_MAX_TOKENS)))
+            when(openAIService.sendMessageToOpenAI(eq(inputMessage), eq(false), eq(userEntity)))
                     .thenReturn(responseMessage);
 
             // Act & Assert
@@ -164,12 +164,13 @@ class OpenAIControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(responseMessage.getId()))
                     .andExpect(jsonPath("$.content").value(TEST_RESPONSE_CONTENT))
-                    .andExpect(jsonPath("$.createdAt").exists());
+                    .andExpect(jsonPath("$.createdAt").exists())
+                    .andExpect(jsonPath("$.user").doesNotExist()); // Ensure user is not included in response
 
             // Verify
             verify(authenticationService).findByUsername(TEST_USERNAME);
             verify(messageRepository, times(2)).save(any(MessageEntity.class));
-            verify(openAIService).sendMessageToOpenAI(eq(inputMessage), eq(false), eq(TEST_API_KEY), eq(TEST_MAX_TOKENS));
+            verify(openAIService).sendMessageToOpenAI(eq(inputMessage), eq(false), eq(userEntity));
         }
 
         /**
@@ -195,7 +196,7 @@ class OpenAIControllerTest {
             // Verify
             verify(authenticationService, never()).findByUsername(any());
             verify(messageRepository, never()).save(any());
-            verify(openAIService, never()).sendMessageToOpenAI(any(), anyBoolean(), any(), any());
+            verify(openAIService, never()).sendMessageToOpenAI(any(), anyBoolean(), any());
         }
 
         /**
@@ -221,7 +222,7 @@ class OpenAIControllerTest {
             // Verify
             verify(authenticationService, never()).findByUsername(any());
             verify(messageRepository, never()).save(any());
-            verify(openAIService, never()).sendMessageToOpenAI(any(), anyBoolean(), any(), any());
+            verify(openAIService, never()).sendMessageToOpenAI(any(), anyBoolean(), any());
         }
 
         /**
@@ -247,7 +248,7 @@ class OpenAIControllerTest {
             // Verify
             verify(authenticationService, never()).findByUsername(any());
             verify(messageRepository, never()).save(any());
-            verify(openAIService, never()).sendMessageToOpenAI(any(), anyBoolean(), any(), any());
+            verify(openAIService, never()).sendMessageToOpenAI(any(), anyBoolean(), any());
         }
 
         /**
@@ -275,7 +276,7 @@ class OpenAIControllerTest {
             // Verify
             verify(authenticationService).findByUsername(TEST_USERNAME);
             verify(messageRepository, never()).save(any());
-            verify(openAIService, never()).sendMessageToOpenAI(any(), anyBoolean(), any(), any());
+            verify(openAIService, never()).sendMessageToOpenAI(any(), anyBoolean(), any());
         }
 
         /**
@@ -289,7 +290,7 @@ class OpenAIControllerTest {
             MessageDTO messageDTO = new MessageDTO(TEST_MESSAGE_CONTENT);
             when(authenticationService.findByUsername(TEST_USERNAME)).thenReturn(userEntity);
             when(messageRepository.save(any(MessageEntity.class))).thenReturn(inputMessage);
-            when(openAIService.sendMessageToOpenAI(eq(inputMessage), eq(false), eq(TEST_API_KEY), eq(TEST_MAX_TOKENS)))
+            when(openAIService.sendMessageToOpenAI(eq(inputMessage), eq(false), eq(userEntity)))
                     .thenThrow(new OpenAIServiceException("Invalid OpenAI API key"));
 
             // Act & Assert
@@ -305,7 +306,7 @@ class OpenAIControllerTest {
             // Verify
             verify(authenticationService).findByUsername(TEST_USERNAME);
             verify(messageRepository).save(any(MessageEntity.class));
-            verify(openAIService).sendMessageToOpenAI(eq(inputMessage), eq(false), eq(TEST_API_KEY), eq(TEST_MAX_TOKENS));
+            verify(openAIService).sendMessageToOpenAI(eq(inputMessage), eq(false), eq(userEntity));
             verify(messageRepository, never()).save(eq(responseMessage));
         }
 
@@ -320,7 +321,7 @@ class OpenAIControllerTest {
             MessageDTO messageDTO = new MessageDTO(TEST_MESSAGE_CONTENT);
             when(authenticationService.findByUsername(TEST_USERNAME)).thenReturn(userEntity);
             when(messageRepository.save(any(MessageEntity.class))).thenReturn(inputMessage);
-            when(openAIService.sendMessageToOpenAI(eq(inputMessage), eq(false), eq(TEST_API_KEY), eq(TEST_MAX_TOKENS)))
+            when(openAIService.sendMessageToOpenAI(eq(inputMessage), eq(false), eq(userEntity)))
                     .thenThrow(new RuntimeException("Unexpected error"));
 
             // Act & Assert
@@ -336,8 +337,37 @@ class OpenAIControllerTest {
             // Verify
             verify(authenticationService).findByUsername(TEST_USERNAME);
             verify(messageRepository).save(any(MessageEntity.class));
-            verify(openAIService).sendMessageToOpenAI(eq(inputMessage), eq(false), eq(TEST_API_KEY), eq(TEST_MAX_TOKENS));
+            verify(openAIService).sendMessageToOpenAI(eq(inputMessage), eq(false), eq(userEntity));
             verify(messageRepository, never()).save(eq(responseMessage));
+        }
+
+        /**
+         * Tests that the saved message and response are associated with the correct user.
+         * @since 1.0
+         */
+        @Test
+        @WithMockUser(username = TEST_USERNAME)
+        void shouldAssociateMessageWithUser() throws Exception {
+            // Arrange
+            MessageDTO messageDTO = new MessageDTO(TEST_MESSAGE_CONTENT);
+            when(authenticationService.findByUsername(TEST_USERNAME)).thenReturn(userEntity);
+            when(messageRepository.save(any(MessageEntity.class))).thenReturn(inputMessage, responseMessage);
+            when(openAIService.sendMessageToOpenAI(eq(inputMessage), eq(false), eq(userEntity)))
+                    .thenReturn(responseMessage);
+
+            // Act & Assert
+            mockMvc.perform(post(OPENAI_URL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(messageDTO)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(responseMessage.getId()))
+                    .andExpect(jsonPath("$.content").value(TEST_RESPONSE_CONTENT))
+                    .andExpect(jsonPath("$.createdAt").exists());
+
+            // Verify
+            verify(authenticationService).findByUsername(TEST_USERNAME);
+            verify(messageRepository, times(2)).save(argThat(message -> message.getUser() != null && message.getUser().equals(userEntity)));
+            verify(openAIService).sendMessageToOpenAI(eq(inputMessage), eq(false), eq(userEntity));
         }
     }
 
@@ -345,14 +375,16 @@ class OpenAIControllerTest {
      * Creates a mock MessageEntity for testing purposes.
      * @param id the ID of the message
      * @param content the content of the message
-     * @return a MessageEntity with the specified ID and content
+     * @param user the user associated with the message
+     * @return a MessageEntity with the specified ID, content, and user
      * @since 1.0
      */
-    private MessageEntity createMessageEntity(Long id, String content) {
+    private MessageEntity createMessageEntity(Long id, String content, UserEntity user) {
         MessageEntity entity = new MessageEntity();
         entity.setId(id);
         entity.setContent(content);
         entity.setCreatedAt(LocalDateTime.now());
+        entity.setUser(user);
         return entity;
     }
 }

@@ -1,6 +1,7 @@
 package com.wojtasj.aichatbridge.service;
 
 import com.wojtasj.aichatbridge.entity.BaseMessage;
+import com.wojtasj.aichatbridge.entity.UserEntity;
 import com.wojtasj.aichatbridge.exception.OpenAIServiceException;
 
 /**
@@ -13,14 +14,13 @@ public interface OpenAIService {
      *
      * @param message the message entity containing the prompt to send
      * @param isDiscordMessage indicates if the message originates from Discord
-     * @param apiKey the OpenAI API key to use for non-Discord messages; must not be null or empty
-     * @param maxTokens the maximum number of tokens allowed in the response for non-Discord messages; must be positive
+     * @param user the UserEntity with id, apikey and max tokens.
      * @param <T> the type of message, must extend {@link BaseMessage}
      * @return the OpenAI response as the same type as the input message
      * @throws OpenAIServiceException if the content, apiKey, maxTokens, or API call fails
      * @since 1.0
      */
-    <T extends BaseMessage> T sendMessageToOpenAI(T message, boolean isDiscordMessage, String apiKey, Integer maxTokens);
+    <T extends BaseMessage> T sendMessageToOpenAI(T message, boolean isDiscordMessage, UserEntity user) throws OpenAIServiceException;
 
     /**
      * Validates the provided OpenAI API key by making a test request to the OpenAI API.

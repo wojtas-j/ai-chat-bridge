@@ -241,11 +241,29 @@ public class GlobalExceptionHandler {
         if (status == null) {
             status = HttpStatus.INTERNAL_SERVER_ERROR;
         }
+
+        String type;
+        String title;
+
+        if (status == HttpStatus.UNAUTHORIZED) {
+            type = "/problems/authentication-failed";
+            title = "Authentication Failed";
+        } else if (status == HttpStatus.FORBIDDEN) {
+            type = "/problems/access-denied";
+            title = "Access Denied";
+        } else if (status == HttpStatus.BAD_REQUEST) {
+            type = "/problems/validation-error";
+            title = "Validation Error";
+        } else {
+            type = "/problems/response-status-error";
+            title = status.getReasonPhrase();
+        }
+
         return buildProblemDetailsResponse(
                 status,
-                status.getReasonPhrase(),
+                title,
                 ex.getReason() != null ? ex.getReason() : "Internal server error",
-                "/problems/response-status-error",
+                type,
                 request.getRequestURI()
         );
     }

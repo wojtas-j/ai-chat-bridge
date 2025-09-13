@@ -84,7 +84,7 @@ public class DiscordBotServiceImpl implements DiscordBotService {
                                 .flatMap(savedUserMessage -> {
                                     log.info("Discord user message saved with ID: {} from nick: {}", savedUserMessage.getId(), savedUserMessage.getDiscordNick());
                                     // Send message to OpenAI and get response
-                                    return Mono.fromCallable(() -> openAIService.sendMessageToOpenAI(savedUserMessage, true, null, null))
+                                    return Mono.fromCallable(() -> openAIService.sendMessageToOpenAI(savedUserMessage, true, null))
                                             .subscribeOn(Schedulers.boundedElastic())
                                             .onErrorMap(e -> new OpenAIServiceException("Failed to process message with OpenAI", e));
                                 })

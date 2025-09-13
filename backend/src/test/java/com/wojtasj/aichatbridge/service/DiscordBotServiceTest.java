@@ -94,7 +94,7 @@ class DiscordBotServiceTest {
         when(discordMessageRepository.save(any(DiscordMessageEntity.class)))
                 .thenReturn(userMessage)
                 .thenReturn(aiResponse);
-        when(openAIService.sendMessageToOpenAI(any(DiscordMessageEntity.class), eq(true), eq(null), eq(null)))
+        when(openAIService.sendMessageToOpenAI(any(DiscordMessageEntity.class), eq(true), eq(null)))
                 .thenReturn(aiResponse);
 
         MessageCreateMono mockCreateMono = mock(MessageCreateMono.class);
@@ -110,7 +110,7 @@ class DiscordBotServiceTest {
                 .verifyComplete();
 
         verify(discordMessageRepository, times(2)).save(any(DiscordMessageEntity.class));
-        verify(openAIService).sendMessageToOpenAI(any(DiscordMessageEntity.class), eq(true), eq(null), eq(null));
+        verify(openAIService).sendMessageToOpenAI(any(DiscordMessageEntity.class), eq(true), eq(null));
         verify(messageChannel).createMessage(eq(AI_RESPONSE));
         verify(mockCreateMono).onErrorMap(any());
     }
@@ -170,7 +170,7 @@ class DiscordBotServiceTest {
         when(user.getUsername()).thenReturn(DISCORD_NICK);
         when(message.getChannel()).thenReturn(Mono.just(messageChannel));
         when(discordMessageRepository.save(any(DiscordMessageEntity.class))).thenReturn(userMessage);
-        when(openAIService.sendMessageToOpenAI(any(DiscordMessageEntity.class), eq(true), eq(null), eq(null)))
+        when(openAIService.sendMessageToOpenAI(any(DiscordMessageEntity.class), eq(true), eq(null)))
                 .thenThrow(new OpenAIServiceException("OpenAI API error"));
 
         // Act
@@ -181,7 +181,7 @@ class DiscordBotServiceTest {
                 .verifyComplete();
 
         verify(discordMessageRepository).save(any(DiscordMessageEntity.class));
-        verify(openAIService).sendMessageToOpenAI(any(DiscordMessageEntity.class), eq(true), eq(null), eq(null));
+        verify(openAIService).sendMessageToOpenAI(any(DiscordMessageEntity.class), eq(true), eq(null));
         verifyNoInteractions(messageChannel);
     }
 

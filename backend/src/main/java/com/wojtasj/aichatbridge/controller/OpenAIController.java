@@ -40,7 +40,7 @@ public class OpenAIController {
     private final AuthenticationService authenticationService;
 
     /**
-     * Sends a message to OpenAI and saves the response in the database.
+     * Sends a message to OpenAI and saves the response in the database, associating it with the authenticated user.
      * @param messageDTO the message DTO containing the content to send to OpenAI
      * @param userDetails the authenticated user's details
      * @return a ResponseEntity containing the AI-generated response as a MessageEntity
@@ -63,11 +63,13 @@ public class OpenAIController {
         }
         log.info("Processing message with OpenAI for user: {}", userDetails.getUsername());
         UserEntity user = authenticationService.findByUsername(userDetails.getUsername());
-        MessageEntity message = new MessageEntity();
-        message.setContent(messageDTO.content());
+        MessageEntity message = MessageEntity.builder()
+                .content(messageDTO.content())
+                .user(user)
+                .build();
         MessageEntity saved = messageRepository.save(message);
         log.info("Message saved before sending to OpenAI, ID: {}", saved.getId());
-        MessageEntity response = openAIService.sendMessageToOpenAI(saved, false, user.getApiKey(), user.getMaxTokens());
+        MessageEntity response = openAIService.sendMessageToOpenAI(saved, false, user);
         MessageEntity savedResponse = messageRepository.save(response);
         log.info("OpenAI response saved with ID: {}", savedResponse.getId());
         return ResponseEntity.ok(savedResponse);

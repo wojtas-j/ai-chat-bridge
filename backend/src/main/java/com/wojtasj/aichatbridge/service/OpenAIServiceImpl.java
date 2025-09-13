@@ -8,6 +8,7 @@ import com.wojtasj.aichatbridge.configuration.OpenAIProperties;
 import com.wojtasj.aichatbridge.entity.BaseMessage;
 import com.wojtasj.aichatbridge.entity.DiscordMessageEntity;
 import com.wojtasj.aichatbridge.entity.MessageEntity;
+import com.wojtasj.aichatbridge.entity.UserEntity;
 import com.wojtasj.aichatbridge.exception.OpenAIServiceException;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -65,23 +66,22 @@ public class OpenAIServiceImpl implements OpenAIService {
      * Sends a message to OpenAI and returns the response.
      * @param message the message to send
      * @param isDiscordMessage indicates if the message is from Discord
-     * @param apiKey the OpenAI API key for non-Discord messages
-     * @param maxTokens the maximum tokens for non-Discord messages
+     * @param user the user associated with the message (optional, for non-Discord messages)
      * @return the response as a BaseMessage subclass
      * @throws OpenAIServiceException if the request or response processing fails
      */
     @Override
     @Retryable(retryFor = {HttpClientErrorException.TooManyRequests.class}, backoff = @Backoff(delay = 1000))
-    public <T extends BaseMessage> T sendMessageToOpenAI(T message, boolean isDiscordMessage, String apiKey, Integer maxTokens) {
+    public <T extends BaseMessage> T sendMessageToOpenAI(T message, boolean isDiscordMessage, UserEntity user) throws OpenAIServiceException {
         validateMessage(message);
-        ApiConfig config = resolveApiConfig(isDiscordMessage, apiKey, maxTokens);
+        ApiConfig config = resolveApiConfig(isDiscordMessage, user);
         log.info("Sending {} message to OpenAI, content: {}", isDiscordMessage ? "Discord" : "User", message.getContent());
 
         HttpEntity<String> request = buildRequest(config.apiKey(), config.maxTokens(), message.getContent());
         ResponseEntity<String> response = executeRequest(request);
 
         String responseText = parseResponse(response.getBody());
-        return createResponse(message, responseText);
+        return createResponse(message, responseText, user);
     }
 
     /**
@@ -126,7 +126,7 @@ public class OpenAIServiceImpl implements OpenAIService {
         }
     }
 
-    private ApiConfig resolveApiConfig(boolean isDiscordMessage, String apiKey, Integer maxTokens) {
+    private ApiConfig resolveApiConfig(boolean isDiscordMessage, UserEntity user) {
         if (isDiscordMessage) {
             try {
                 return new ApiConfig(discordProperties.getApiKey(), Integer.parseInt(discordProperties.getMaxTokens()));
@@ -135,13 +135,17 @@ public class OpenAIServiceImpl implements OpenAIService {
                 throw new OpenAIServiceException("Invalid max-tokens configuration for Discord");
             }
         } else {
-            validateNotEmpty(apiKey, "API key required for non-Discord messages");
-            if (maxTokens == null || maxTokens <= 0) {
-                log.error("Max tokens is null or non-positive for non-Discord message: {}", maxTokens);
+            if (user == null) {
+                log.error("User is required for non-Discord messages");
+                throw new OpenAIServiceException("User is required for non-Discord messages");
+            }
+            validateNotEmpty(user.getApiKey(), "API key required for non-Discord messages");
+            if (user.getMaxTokens() == null || user.getMaxTokens() <= 0) {
+                log.error("Max tokens is null or non-positive for non-Discord message: {}", user.getMaxTokens());
                 throw new OpenAIServiceException("Max tokens must be positive for non-Discord messages");
             }
-            validateApiKey(apiKey);
-            return new ApiConfig(apiKey, maxTokens);
+            validateApiKey(user.getApiKey());
+            return new ApiConfig(user.getApiKey(), user.getMaxTokens());
         }
     }
 
@@ -190,7 +194,7 @@ public class OpenAIServiceImpl implements OpenAIService {
     }
 
     @SuppressWarnings("unchecked")
-    private <T extends BaseMessage> T createResponse(T message, String responseText) {
+    private <T extends BaseMessage> T createResponse(T message, String responseText, UserEntity user) {
         if (message instanceof DiscordMessageEntity) {
             DiscordMessageEntity discordResponse = new DiscordMessageEntity();
             discordResponse.setContent(responseText);
@@ -201,6 +205,7 @@ public class OpenAIServiceImpl implements OpenAIService {
             MessageEntity userResponse = new MessageEntity();
             userResponse.setContent(responseText);
             userResponse.setCreatedAt(LocalDateTime.now());
+            userResponse.setUser(user);
             return (T) userResponse;
         } else {
             log.error("Unsupported message type: {}", message.getClass().getSimpleName());

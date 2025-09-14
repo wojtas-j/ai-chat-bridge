@@ -27,6 +27,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 /**
  * Controller for handling authentication-related endpoints in the AI Chat Bridge application.
  * @since 1.0
@@ -56,9 +58,9 @@ public class AuthenticationController {
     @Operation(summary = "Get current authenticated user's info", security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Successfully retrieved user info", content = @Content(schema = @Schema(implementation = UserDTO.class))),
-            @ApiResponse(responseCode = "401", description = "Unauthorized - missing or invalid token", content = @Content),
-            @ApiResponse(responseCode = "403", description = "Forbidden - no permission to access", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Server error", content = @Content)
+            @ApiResponse(responseCode = "401", description = "Unauthorized - missing or invalid token", content = @Content(schema = @Schema(implementation = Map.class))),
+            @ApiResponse(responseCode = "403", description = "Forbidden - no permission to access", content = @Content(schema = @Schema(implementation = Map.class))),
+            @ApiResponse(responseCode = "500", description = "Server error", content = @Content(schema = @Schema(implementation = Map.class)))
     })
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/me")
@@ -83,9 +85,9 @@ public class AuthenticationController {
     @Operation(summary = "Registers a new user")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "User registered successfully", content = @Content(schema = @Schema(implementation = UserDTO.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid request data", content = @Content),
-            @ApiResponse(responseCode = "409", description = "Username or email already taken", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Server error", content = @Content)
+            @ApiResponse(responseCode = "400", description = "Invalid request data", content = @Content(schema = @Schema(implementation = Map.class))),
+            @ApiResponse(responseCode = "409", description = "Username or email already taken", content = @Content(schema = @Schema(implementation = Map.class))),
+            @ApiResponse(responseCode = "500", description = "Server error", content = @Content(schema = @Schema(implementation = Map.class)))
     })
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/register")
@@ -107,9 +109,9 @@ public class AuthenticationController {
     @Operation(summary = "Authenticates a user and returns access and refresh tokens")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "User authenticated successfully", content = @Content(schema = @Schema(implementation = TokenResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid request data", content = @Content),
-            @ApiResponse(responseCode = "401", description = "Invalid username or password", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Server error", content = @Content)
+            @ApiResponse(responseCode = "400", description = "Invalid request data", content = @Content(schema = @Schema(implementation = Map.class))),
+            @ApiResponse(responseCode = "401", description = "Invalid username or password", content = @Content(schema = @Schema(implementation = Map.class))),
+            @ApiResponse(responseCode = "500", description = "Server error", content = @Content(schema = @Schema(implementation = Map.class)))
     })
     @PostMapping("/login")
     public ResponseEntity<TokenResponse> login(@Valid @RequestBody LoginRequest request) {
@@ -134,15 +136,14 @@ public class AuthenticationController {
     @Operation(summary = "Refreshes an access token using a refresh token", security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Access token refreshed successfully", content = @Content(schema = @Schema(implementation = TokenResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid request data", content = @Content),
-            @ApiResponse(responseCode = "401", description = "Invalid or expired refresh token or unauthorized user", content = @Content),
-            @ApiResponse(responseCode = "403", description = "Forbidden - no permission to access", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Server error", content = @Content)
+            @ApiResponse(responseCode = "400", description = "Invalid request data", content = @Content(schema = @Schema(implementation = Map.class))),
+            @ApiResponse(responseCode = "401", description = "Invalid or expired refresh token or unauthorized user", content = @Content(schema = @Schema(implementation = Map.class))),
+            @ApiResponse(responseCode = "403", description = "Forbidden - no permission to access", content = @Content(schema = @Schema(implementation = Map.class))),
+            @ApiResponse(responseCode = "500", description = "Server error", content = @Content(schema = @Schema(implementation = Map.class)))
     })
     @PreAuthorize("isAuthenticated()")
     @PostMapping("/refresh")
-    public ResponseEntity<TokenResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request,
-                                                      @AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<TokenResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request, @AuthenticationPrincipal UserDetails userDetails) {
         if (userDetails == null) {
             log.warn("No authenticated user tries to refresh token");
             throw new AccessDeniedException(ACCESS_DENIED_MESSAGE);
@@ -177,9 +178,9 @@ public class AuthenticationController {
     @Operation(summary = "Logs out the authenticated user", security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "User logged out successfully", content = @Content),
-            @ApiResponse(responseCode = "401", description = "Unauthorized - missing or invalid token", content = @Content),
-            @ApiResponse(responseCode = "403", description = "Forbidden - no permission to access", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Server error", content = @Content)
+            @ApiResponse(responseCode = "401", description = "Unauthorized - missing or invalid token", content = @Content(schema = @Schema(implementation = Map.class))),
+            @ApiResponse(responseCode = "403", description = "Forbidden - no permission to access", content = @Content(schema = @Schema(implementation = Map.class))),
+            @ApiResponse(responseCode = "500", description = "Server error", content = @Content(schema = @Schema(implementation = Map.class)))
     })
     @PreAuthorize("isAuthenticated()")
     @PostMapping("/logout")

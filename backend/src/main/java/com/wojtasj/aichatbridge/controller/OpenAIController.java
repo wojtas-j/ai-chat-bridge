@@ -25,6 +25,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 /**
  * Handles HTTP requests related to OpenAI interactions in the AI Chat Bridge application.
  * @since 1.0
@@ -49,10 +51,10 @@ public class OpenAIController {
     @Operation(summary = "Sends message to OpenAI", security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Message sent to OpenAI and received answer", content = @Content(schema = @Schema(implementation = MessageEntity.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid request data", content = @Content),
-            @ApiResponse(responseCode = "401", description = "Unauthorized - missing or invalid token", content = @Content),
-            @ApiResponse(responseCode = "403", description = "Forbidden - no permission to access", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Server error", content = @Content)
+            @ApiResponse(responseCode = "400", description = "Invalid request data", content = @Content(schema = @Schema(implementation = Map.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - missing or invalid token", content = @Content(schema = @Schema(implementation = Map.class))),
+            @ApiResponse(responseCode = "403", description = "Forbidden - no permission to access", content = @Content(schema = @Schema(implementation = Map.class))),
+            @ApiResponse(responseCode = "500", description = "Server error", content = @Content(schema = @Schema(implementation = Map.class)))
     })
     @PreAuthorize("isAuthenticated()")
     @PostMapping

@@ -288,6 +288,25 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles {@link MessageNotFoundException} for cases where a message is not found.
+     * @param ex the message not found exception
+     * @param request the HTTP request
+     * @return a ResponseEntity containing problem details with HTTP status 404
+     * @since 1.0
+     */
+    @ExceptionHandler(MessageNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleMessageNotFoundException(MessageNotFoundException ex, HttpServletRequest request) {
+        log.error("Message not found: {}", ex.getMessage(), ex);
+        return buildProblemDetailsResponse(
+                HttpStatus.NOT_FOUND,
+                "Message Not Found",
+                ex.getMessage(),
+                "/problems/message-not-found",
+                request.getRequestURI()
+        );
+    }
+
+    /**
      * Builds a problem details response in RFC 7807 format.
      * @param status the HTTP status code
      * @param title the title of the error

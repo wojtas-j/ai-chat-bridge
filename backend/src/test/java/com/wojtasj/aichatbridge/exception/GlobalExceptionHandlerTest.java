@@ -271,6 +271,23 @@ class GlobalExceptionHandlerTest {
     }
 
     /**
+     * Tests handling of {@link MessageNotFoundException}.
+     * @since 1.0
+     */
+    @Test
+    void shouldHandleMessageNotFoundException() throws Exception {
+        // Act & Assert
+        mockMvc.perform(post("/test/message-not-found")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.type").value("/problems/message-not-found"))
+                .andExpect(jsonPath("$.title").value("Message Not Found"))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Message not found with ID: 999"))
+                .andExpect(jsonPath("$.instance").value("/test/message-not-found"));
+    }
+
+    /**
      * Tests handling of generic {@link Exception}.
      * @since 1.0
      */
@@ -366,6 +383,11 @@ class GlobalExceptionHandlerTest {
         @PostMapping("/test/generic")
         public void throwGenericException() {
             throw new RuntimeException("Test generic error");
+        }
+
+        @PostMapping("/test/message-not-found")
+        public void throwMessageNotFoundException() {
+            throw new MessageNotFoundException("Message not found with ID: 999");
         }
     }
 }

@@ -59,10 +59,6 @@ public class OpenAIController {
     @PreAuthorize("isAuthenticated()")
     @PostMapping
     public ResponseEntity<MessageEntity> sendToOpenAI(@Valid @RequestBody MessageDTO messageDTO, @AuthenticationPrincipal UserDetails userDetails) {
-        if (userDetails == null) {
-            log.warn("No authenticated user found");
-            throw new AccessDeniedException("You do not have permission to access this resource");
-        }
         log.info("Processing message with OpenAI for user: {}", userDetails.getUsername());
         UserEntity user = authenticationService.findByUsername(userDetails.getUsername());
         MessageEntity message = MessageEntity.builder()

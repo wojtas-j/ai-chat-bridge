@@ -398,4 +398,53 @@ class SecurityConfigTest {
                         .content(messageJson))
                 .andExpect(status().isCreated());
     }
+
+    /**
+     * Tests that authenticated user can successfully logout.
+     * @since 1.0
+     */
+    @Test
+    void shouldAllowAuthenticatedUserToLogout() throws Exception {
+        // Arrange
+        String loginJson = """
+        {
+            "username": "%s",
+            "password": "%s"
+        }
+    """.formatted(TEST_USERNAME, TEST_PASSWORD);
+
+        String responseBody = mockMvc.perform(post(AUTH_URL + "/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        TokenResponse tokenResponse = objectMapper.readValue(responseBody, TokenResponse.class);
+        String accessToken = "Bearer " + tokenResponse.accessToken();
+
+        // Act & Assert
+        mockMvc.perform(post(AUTH_URL + "/logout")
+                        .header("Authorization", accessToken)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        assert(refreshTokenRepository.findByToken(TEST_REFRESH_TOKEN).isEmpty());
+    }
+
+    /**
+     * Tests that unauthenticated access to logout is blocked.
+     * @since 1.0
+     */
+    @Test
+    void shouldBlockUnauthenticatedAccessToLogout() throws Exception {
+        // Act & Assert
+        mockMvc.perform(post(AUTH_URL + "/logout")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.type").value("/problems/authentication-failed"))
+                .andExpect(jsonPath("$.status").value(401));
+    }
+
 }

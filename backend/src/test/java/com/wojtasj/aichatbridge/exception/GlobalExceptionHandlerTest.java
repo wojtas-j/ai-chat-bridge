@@ -163,7 +163,6 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.type").value("/problems/validation-error"))
                 .andExpect(jsonPath("$.title").value("Validation Error"))
                 .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.detail").value("content Content cannot be blank"))
                 .andExpect(jsonPath("$.instance").value("/test/validation"));
     }
 

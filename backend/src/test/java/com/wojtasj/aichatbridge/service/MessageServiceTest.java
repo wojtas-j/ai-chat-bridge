@@ -38,7 +38,7 @@ import static org.mockito.Mockito.*;
  */
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
-class MessageServiceImplTest {
+class MessageServiceTest {
 
     private static final Long USER_ID = 1L;
     private static final Long ADMIN_ID = 2L;

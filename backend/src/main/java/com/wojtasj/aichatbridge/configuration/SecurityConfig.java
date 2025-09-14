@@ -68,6 +68,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
                         .requestMatchers("/api/auth/refresh").authenticated()
+                        .requestMatchers("/api/auth/logout").authenticated()
                         .requestMatchers("/api/messages/admin").hasRole("ADMIN")
                         .requestMatchers("/api/messages/**").authenticated()
                         .requestMatchers("/api/openai/**").authenticated()
@@ -79,25 +80,25 @@ public class SecurityConfig {
                             response.setContentType("application/json");
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                             response.getWriter().write("""
-                {
-                    "type": "/problems/authentication-failed",
-                    "title": "Authentication Failed",
-                    "status": 401,
-                    "detail": "You must provide a valid token to access this resource"
-                }
-                """);
+                    {
+                        "type": "/problems/authentication-failed",
+                        "title": "Authentication Failed",
+                        "status": 401,
+                        "detail": "You must provide a valid token to access this resource"
+                    }
+                    """);
                         })
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
                             response.setContentType("application/json");
                             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                             response.getWriter().write("""
-                {
-                    "type": "/problems/access-denied",
-                    "title": "Access Denied",
-                    "status": 403,
-                    "detail": "You do not have permission to access this resource"
-                }
-                """);
+                    {
+                        "type": "/problems/access-denied",
+                        "title": "Access Denied",
+                        "status": 403,
+                        "detail": "You do not have permission to access this resource"
+                    }
+                    """);
                         })
                 )
                 .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);

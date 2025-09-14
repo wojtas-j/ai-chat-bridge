@@ -3,7 +3,6 @@ package com.wojtasj.aichatbridge.controller;
 import com.wojtasj.aichatbridge.dto.*;
 import com.wojtasj.aichatbridge.entity.RefreshTokenEntity;
 import com.wojtasj.aichatbridge.entity.UserEntity;
-import com.wojtasj.aichatbridge.exception.AccessDeniedException;
 import com.wojtasj.aichatbridge.exception.AuthenticationException;
 import com.wojtasj.aichatbridge.service.AuthenticationService;
 import com.wojtasj.aichatbridge.service.JwtTokenProviderImpl;
@@ -39,7 +38,6 @@ import java.util.Map;
 @Slf4j
 public class AuthenticationController {
 
-    private static final String ACCESS_DENIED_MESSAGE = "You do not have permission to access this resource";
     private static final String INVALID_REFRESH_TOKEN_MESSAGE = "Invalid refresh token";
     private static final String REFRESH_TOKEN_MISMATCH_MESSAGE = "Refresh token does not match authenticated user";
 
@@ -65,10 +63,6 @@ public class AuthenticationController {
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/me")
     public ResponseEntity<UserDTO> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
-        if (userDetails == null) {
-            log.warn("No authenticated user found");
-            throw new AccessDeniedException(ACCESS_DENIED_MESSAGE);
-        }
         log.info("Retrieving info for authenticated user: {}", userDetails.getUsername());
         UserEntity user = authenticationService.findByUsername(userDetails.getUsername());
         log.info("Successfully retrieved info for user: {}", user.getUsername());
@@ -144,10 +138,6 @@ public class AuthenticationController {
     @PreAuthorize("isAuthenticated()")
     @PostMapping("/refresh")
     public ResponseEntity<TokenResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request, @AuthenticationPrincipal UserDetails userDetails) {
-        if (userDetails == null) {
-            log.warn("No authenticated user tries to refresh token");
-            throw new AccessDeniedException(ACCESS_DENIED_MESSAGE);
-        }
         log.info("Refreshing access token for user: {}", userDetails.getUsername());
         RefreshTokenEntity tokenEntity = refreshTokenService.validateRefreshToken(request.refreshToken());
         if (tokenEntity == null) {
@@ -185,10 +175,6 @@ public class AuthenticationController {
     @PreAuthorize("isAuthenticated()")
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@AuthenticationPrincipal UserDetails userDetails) {
-        if (userDetails == null) {
-            log.warn("No authenticated user found tries to logout");
-            throw new AccessDeniedException(ACCESS_DENIED_MESSAGE);
-        }
         log.info("Logging out user: {}", userDetails.getUsername());
         UserEntity user = authenticationService.findByUsername(userDetails.getUsername());
         refreshTokenService.deleteByUser(user);

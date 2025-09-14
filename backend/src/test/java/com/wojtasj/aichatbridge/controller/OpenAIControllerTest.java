@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.wojtasj.aichatbridge.configuration.SecurityConfig;
 import com.wojtasj.aichatbridge.dto.MessageDTO;
 import com.wojtasj.aichatbridge.entity.MessageEntity;
 import com.wojtasj.aichatbridge.entity.Role;
@@ -13,35 +14,22 @@ import com.wojtasj.aichatbridge.exception.GlobalExceptionHandler;
 import com.wojtasj.aichatbridge.exception.OpenAIServiceException;
 import com.wojtasj.aichatbridge.repository.MessageRepository;
 import com.wojtasj.aichatbridge.service.AuthenticationService;
+import com.wojtasj.aichatbridge.service.JwtTokenProviderImpl;
 import com.wojtasj.aichatbridge.service.OpenAIServiceImpl;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.core.MethodParameter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.bind.support.WebDataBinderFactory;
-import org.springframework.web.context.request.NativeWebRequest;
-import org.springframework.web.method.support.HandlerMethodArgumentResolver;
-import org.springframework.web.method.support.ModelAndViewContainer;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.Set;
 
 import static org.hamcrest.Matchers.*;
@@ -55,8 +43,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Tests the functionality of {@link OpenAIController} in the AI Chat Bridge application.
  * @since 1.0
  */
-@ExtendWith(MockitoExtension.class)
-@ActiveProfiles("test")
+@WebMvcTest(OpenAIController.class)
+@ContextConfiguration(classes = {OpenAIController.class, GlobalExceptionHandler.class, SecurityConfig.class})
+@Import(SecurityConfig.class)
 class OpenAIControllerTest {
 
     private static final String OPENAI_URL = "/api/openai";
@@ -67,19 +56,28 @@ class OpenAIControllerTest {
     private static final String TEST_RESPONSE_CONTENT = "AI response";
     private static final int TEST_MAX_TOKENS = 1000;
 
+    @Autowired
     private MockMvc mockMvc;
 
-    @Mock
+    @SuppressWarnings("unused")
+    @MockitoBean
     private MessageRepository messageRepository;
 
-    @Mock
+    @SuppressWarnings("unused")
+    @MockitoBean
     private OpenAIServiceImpl openAIService;
 
-    @Mock
+    @SuppressWarnings("unused")
+    @MockitoBean
     private AuthenticationService authenticationService;
 
-    @InjectMocks
-    private OpenAIController openAIController;
+    @SuppressWarnings("unused")
+    @MockitoBean
+    private JwtTokenProviderImpl jwtTokenProvider;
+
+    @SuppressWarnings("unused")
+    @MockitoBean
+    private UserDetailsService userDetailsService;
 
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule())
@@ -91,7 +89,7 @@ class OpenAIControllerTest {
     private MessageEntity responseMessage;
 
     /**
-     * Sets up the test environment with MockMvc and dependencies.
+     * Sets up the test environment with mocked dependencies.
      * @since 1.0
      */
     @BeforeEach
@@ -108,37 +106,7 @@ class OpenAIControllerTest {
         inputMessage = createMessageEntity(1L, TEST_MESSAGE_CONTENT, userEntity);
         responseMessage = createMessageEntity(2L, TEST_RESPONSE_CONTENT, userEntity);
 
-        UserDetails userDetails = new User(TEST_USERNAME, TEST_PASSWORD, Collections.emptyList());
-        Authentication authentication = new UsernamePasswordAuthenticationToken(
-                userDetails, null, userDetails.getAuthorities());
-
-        mockMvc = MockMvcBuilders
-                .standaloneSetup(openAIController)
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
-                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
-                .build();
-
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-    }
-
-    static class AuthenticationPrincipalArgumentResolver implements HandlerMethodArgumentResolver {
-        @Override
-        public boolean supportsParameter(MethodParameter parameter) {
-            return parameter.hasParameterAnnotation(AuthenticationPrincipal.class);
-        }
-
-        @Override
-        public Object resolveArgument(@NotNull MethodParameter parameter,
-                                      ModelAndViewContainer mavContainer,
-                                      @NotNull NativeWebRequest webRequest,
-                                      WebDataBinderFactory binderFactory) {
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth == null || !auth.isAuthenticated()) {
-                return null;
-            }
-            return auth.getPrincipal();
-        }
+        lenient().when(authenticationService.findByUsername(TEST_USERNAME)).thenReturn(userEntity);
     }
 
     @Nested
@@ -152,7 +120,6 @@ class OpenAIControllerTest {
         void shouldSendToOpenAISuccessfully() throws Exception {
             // Arrange
             MessageDTO messageDTO = new MessageDTO(TEST_MESSAGE_CONTENT);
-            when(authenticationService.findByUsername(TEST_USERNAME)).thenReturn(userEntity);
             when(messageRepository.save(any(MessageEntity.class))).thenReturn(inputMessage, responseMessage);
             when(openAIService.sendMessageToOpenAI(eq(inputMessage), eq(false), eq(userEntity)))
                     .thenReturn(responseMessage);
@@ -165,11 +132,12 @@ class OpenAIControllerTest {
                     .andExpect(jsonPath("$.id").value(responseMessage.getId()))
                     .andExpect(jsonPath("$.content").value(TEST_RESPONSE_CONTENT))
                     .andExpect(jsonPath("$.createdAt").exists())
-                    .andExpect(jsonPath("$.user").doesNotExist()); // Ensure user is not included in response
+                    .andExpect(jsonPath("$.user").doesNotExist());
 
             // Verify
             verify(authenticationService).findByUsername(TEST_USERNAME);
-            verify(messageRepository, times(2)).save(any(MessageEntity.class));
+            verify(messageRepository, times(2)).save(argThat(message ->
+                    message.getContent().equals(TEST_MESSAGE_CONTENT) || message.getContent().equals(TEST_RESPONSE_CONTENT)));
             verify(openAIService).sendMessageToOpenAI(eq(inputMessage), eq(false), eq(userEntity));
         }
 
@@ -232,18 +200,17 @@ class OpenAIControllerTest {
         @Test
         void shouldRejectWhenNotAuthenticated() throws Exception {
             // Arrange
-            SecurityContextHolder.clearContext();
             MessageDTO messageDTO = new MessageDTO(TEST_MESSAGE_CONTENT);
 
             // Act & Assert
             mockMvc.perform(post(OPENAI_URL)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(messageDTO)))
-                    .andExpect(status().isForbidden())
-                    .andExpect(jsonPath("$.type").value("/problems/access-denied"))
-                    .andExpect(jsonPath("$.title").value("Access Denied"))
-                    .andExpect(jsonPath("$.status").value(403))
-                    .andExpect(jsonPath("$.detail").value("You do not have permission to access this resource"));
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.type").value("/problems/authentication-failed"))
+                    .andExpect(jsonPath("$.title").value("Authentication Failed"))
+                    .andExpect(jsonPath("$.status").value(401))
+                    .andExpect(jsonPath("$.detail").exists());
 
             // Verify
             verify(authenticationService, never()).findByUsername(any());
@@ -288,7 +255,6 @@ class OpenAIControllerTest {
         void shouldHandleOpenAIError() throws Exception {
             // Arrange
             MessageDTO messageDTO = new MessageDTO(TEST_MESSAGE_CONTENT);
-            when(authenticationService.findByUsername(TEST_USERNAME)).thenReturn(userEntity);
             when(messageRepository.save(any(MessageEntity.class))).thenReturn(inputMessage);
             when(openAIService.sendMessageToOpenAI(eq(inputMessage), eq(false), eq(userEntity)))
                     .thenThrow(new OpenAIServiceException("Invalid OpenAI API key"));
@@ -319,7 +285,6 @@ class OpenAIControllerTest {
         void shouldHandleUnexpectedError() throws Exception {
             // Arrange
             MessageDTO messageDTO = new MessageDTO(TEST_MESSAGE_CONTENT);
-            when(authenticationService.findByUsername(TEST_USERNAME)).thenReturn(userEntity);
             when(messageRepository.save(any(MessageEntity.class))).thenReturn(inputMessage);
             when(openAIService.sendMessageToOpenAI(eq(inputMessage), eq(false), eq(userEntity)))
                     .thenThrow(new RuntimeException("Unexpected error"));
@@ -350,7 +315,6 @@ class OpenAIControllerTest {
         void shouldAssociateMessageWithUser() throws Exception {
             // Arrange
             MessageDTO messageDTO = new MessageDTO(TEST_MESSAGE_CONTENT);
-            when(authenticationService.findByUsername(TEST_USERNAME)).thenReturn(userEntity);
             when(messageRepository.save(any(MessageEntity.class))).thenReturn(inputMessage, responseMessage);
             when(openAIService.sendMessageToOpenAI(eq(inputMessage), eq(false), eq(userEntity)))
                     .thenReturn(responseMessage);
@@ -362,12 +326,69 @@ class OpenAIControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(responseMessage.getId()))
                     .andExpect(jsonPath("$.content").value(TEST_RESPONSE_CONTENT))
-                    .andExpect(jsonPath("$.createdAt").exists());
+                    .andExpect(jsonPath("$.createdAt").exists())
+                    .andExpect(jsonPath("$.user").doesNotExist());
 
             // Verify
             verify(authenticationService).findByUsername(TEST_USERNAME);
-            verify(messageRepository, times(2)).save(argThat(message -> message.getUser() != null && message.getUser().equals(userEntity)));
+            verify(messageRepository, times(2)).save(argThat(message ->
+                    message.getUser() != null && message.getUser().equals(userEntity)));
             verify(openAIService).sendMessageToOpenAI(eq(inputMessage), eq(false), eq(userEntity));
+        }
+
+        /**
+         * Tests rejecting a message with content exceeding the maximum length.
+         * @since 1.0
+         */
+        @Test
+        @WithMockUser(username = TEST_USERNAME)
+        void shouldRejectMessageWithTooLongContent() throws Exception {
+            // Arrange
+            String longContent = "a".repeat(5001);
+            MessageDTO messageDTO = new MessageDTO(longContent);
+
+            // Act & Assert
+            mockMvc.perform(post(OPENAI_URL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(messageDTO)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.type").value("/problems/validation-error"))
+                    .andExpect(jsonPath("$.title").value("Validation Error"))
+                    .andExpect(jsonPath("$.status").value(400))
+                    .andExpect(jsonPath("$.detail").value(containsString("content Content length must be between 1 and 5000 characters")));
+
+            // Verify
+            verify(authenticationService, never()).findByUsername(any());
+            verify(messageRepository, never()).save(any());
+            verify(openAIService, never()).sendMessageToOpenAI(any(), anyBoolean(), any());
+        }
+
+        /**
+         * Tests handling of database error during message save.
+         * @since 1.0
+         */
+        @Test
+        @WithMockUser(username = TEST_USERNAME)
+        void shouldHandleDatabaseError() throws Exception {
+            // Arrange
+            MessageDTO messageDTO = new MessageDTO(TEST_MESSAGE_CONTENT);
+            when(messageRepository.save(any(MessageEntity.class)))
+                    .thenThrow(new org.springframework.dao.DataAccessException("Database error") {});
+
+            // Act & Assert
+            mockMvc.perform(post(OPENAI_URL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(messageDTO)))
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(jsonPath("$.type").value("/problems/internal-server-error"))
+                    .andExpect(jsonPath("$.title").value("Internal Server Error"))
+                    .andExpect(jsonPath("$.status").value(500))
+                    .andExpect(jsonPath("$.detail").value(containsString("Database error")));
+
+            // Verify
+            verify(authenticationService).findByUsername(TEST_USERNAME);
+            verify(messageRepository).save(any(MessageEntity.class));
+            verify(openAIService, never()).sendMessageToOpenAI(any(), anyBoolean(), any());
         }
     }
 

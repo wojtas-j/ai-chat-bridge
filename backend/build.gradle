@@ -37,6 +37,7 @@ dependencies {
 	implementation 'org.springframework:spring-aspects:7.0.0-M8'
 	implementation 'org.springframework.retry:spring-retry:2.0.12'
 	implementation 'io.jsonwebtoken:jjwt-api:0.13.0'
+	implementation 'org.springframework.security:spring-security-crypto:7.0.0-M2'
 	implementation('org.json:json:20250517') {
 		exclude group: 'com.vaadin.external.google', module: 'android-json'
 	}
@@ -67,6 +68,7 @@ dependencies {
 	testImplementation 'org.mockito:mockito-junit-jupiter:5.19.0'
 	testImplementation 'net.bytebuddy:byte-buddy-agent:1.17.7'
 	testImplementation 'com.h2database:h2:2.3.232'
+	testImplementation 'org.springframework.security:spring-security-crypto:7.0.0-M2'
 
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }

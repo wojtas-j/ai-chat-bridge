@@ -1,5 +1,6 @@
 package com.wojtasj.aichatbridge.repository;
 
+import com.wojtasj.aichatbridge.configuration.TestBeansConfig;
 import com.wojtasj.aichatbridge.entity.RefreshTokenEntity;
 import com.wojtasj.aichatbridge.entity.Role;
 import com.wojtasj.aichatbridge.entity.UserEntity;
@@ -7,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
@@ -21,7 +23,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @DataJpaTest
 @ActiveProfiles("test")
+@Import(TestBeansConfig.class)
 public class RefreshTokenRepositoryTest {
+
+    private static final String TEST_USER = "testuser";
+    private static final String TEST_TOKEN1 = "test-token1";
+    private static final String TEST_TOKEN2 = "test-token2";
 
     @Autowired
     private RefreshTokenRepository repository;
@@ -36,20 +43,22 @@ public class RefreshTokenRepositoryTest {
     @BeforeEach
     void setUp() {
         testUser = UserEntity.builder()
-                .username("testuser")
+                .username(TEST_USER)
                 .email("test@example.com")
-                .password("password")
+                .password("password123P!")
                 .roles(Set.of(Role.USER))
+                .apiKey("testapikey")
+                .maxTokens(100)
                 .build();
         testUser = userRepository.save(testUser);
 
         token1 = RefreshTokenEntity.builder()
-                .token("test-token1")
+                .token(TEST_TOKEN1)
                 .user(testUser)
                 .build();
 
         token2 = RefreshTokenEntity.builder()
-                .token("test-token2")
+                .token(TEST_TOKEN2)
                 .user(testUser)
                 .build();
     }
@@ -62,12 +71,12 @@ public class RefreshTokenRepositoryTest {
     void shouldSaveAndFindByToken() {
         // Act
         repository.save(token1);
-        Optional<RefreshTokenEntity> foundToken = repository.findByToken("test-token1");
+        Optional<RefreshTokenEntity> foundToken = repository.findByToken(TEST_TOKEN1);
 
         // Assert
         assertThat(foundToken).isPresent();
-        assertThat(foundToken.get().getToken()).isEqualTo("test-token1");
-        assertThat(foundToken.get().getUser().getUsername()).isEqualTo("testuser");
+        assertThat(foundToken.get().getToken()).isEqualTo(TEST_TOKEN1);
+        assertThat(foundToken.get().getUser().getUsername()).isEqualTo(TEST_USER);
     }
 
     /**
@@ -119,7 +128,7 @@ public class RefreshTokenRepositoryTest {
 
         // Assert
         assertThat(repository.findAll()).hasSize(1);
-        assertThat(repository.findByToken("test-token2")).isPresent();
-        assertThat(repository.findByToken("test-token1")).isEmpty();
+        assertThat(repository.findByToken(TEST_TOKEN2)).isPresent();
+        assertThat(repository.findByToken(TEST_TOKEN1)).isEmpty();
     }
 }

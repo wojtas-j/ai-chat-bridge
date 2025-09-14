@@ -37,10 +37,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(OpenAIServiceException.class)
     public ResponseEntity<Map<String, Object>> handleOpenAIServiceException(OpenAIServiceException ex, HttpServletRequest request) {
         log.error("OpenAI error: {}", ex.getMessage(), ex);
+        HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
+        if (ex.getMessage().contains("Invalid OpenAI API key")) {
+            status = HttpStatus.BAD_REQUEST;
+        } else if (ex.getMessage().contains("TooManyRequests")) {
+            status = HttpStatus.TOO_MANY_REQUESTS;
+        }
         return buildProblemDetailsResponse(
-                HttpStatus.INTERNAL_SERVER_ERROR,
+                status,
                 "OpenAI Service Error",
-                "Failed to process OpenAI request",
+                ex.getMessage(),
                 "/problems/openai-service-error",
                 request.getRequestURI()
         );
@@ -235,11 +241,29 @@ public class GlobalExceptionHandler {
         if (status == null) {
             status = HttpStatus.INTERNAL_SERVER_ERROR;
         }
+
+        String type;
+        String title;
+
+        if (status == HttpStatus.UNAUTHORIZED) {
+            type = "/problems/authentication-failed";
+            title = "Authentication Failed";
+        } else if (status == HttpStatus.FORBIDDEN) {
+            type = "/problems/access-denied";
+            title = "Access Denied";
+        } else if (status == HttpStatus.BAD_REQUEST) {
+            type = "/problems/validation-error";
+            title = "Validation Error";
+        } else {
+            type = "/problems/response-status-error";
+            title = status.getReasonPhrase();
+        }
+
         return buildProblemDetailsResponse(
                 status,
-                status.getReasonPhrase(),
+                title,
                 ex.getReason() != null ? ex.getReason() : "Internal server error",
-                "/problems/response-status-error",
+                type,
                 request.getRequestURI()
         );
     }
@@ -259,6 +283,25 @@ public class GlobalExceptionHandler {
                 "Internal Server Error",
                 "Unexpected error: " + ex.getMessage(),
                 "/problems/internal-server-error",
+                request.getRequestURI()
+        );
+    }
+
+    /**
+     * Handles {@link MessageNotFoundException} for cases where a message is not found.
+     * @param ex the message not found exception
+     * @param request the HTTP request
+     * @return a ResponseEntity containing problem details with HTTP status 404
+     * @since 1.0
+     */
+    @ExceptionHandler(MessageNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleMessageNotFoundException(MessageNotFoundException ex, HttpServletRequest request) {
+        log.error("Message not found: {}", ex.getMessage(), ex);
+        return buildProblemDetailsResponse(
+                HttpStatus.NOT_FOUND,
+                "Message Not Found",
+                ex.getMessage(),
+                "/problems/message-not-found",
                 request.getRequestURI()
         );
     }

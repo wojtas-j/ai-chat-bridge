@@ -1,11 +1,13 @@
 package com.wojtasj.aichatbridge.repository;
 
+import com.wojtasj.aichatbridge.configuration.TestBeansConfig;
 import com.wojtasj.aichatbridge.entity.Role;
 import com.wojtasj.aichatbridge.entity.UserEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.Optional;
@@ -19,15 +21,22 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @DataJpaTest
 @ActiveProfiles("test")
+@Import(TestBeansConfig.class)
 public class UserRepositoryTest {
+
+    private static final String TEST_USER = "testuser";
+    private static final String TEST_EMAIL = "test@example.com";
+    private static final String TEST_NON_EXISTENT_EMAIL = "non-existent@example.com";
 
     @BeforeEach
     void setUp() {
         UserEntity testUser = UserEntity.builder()
-                .username("testuser")
-                .email("test@example.com")
-                .password("password")
+                .username(TEST_USER)
+                .email(TEST_EMAIL)
+                .password("password123P!")
                 .roles(Set.of(Role.USER))
+                .apiKey("testapikey")
+                .maxTokens(100)
                 .build();
         repository.save(testUser);
     }
@@ -42,12 +51,12 @@ public class UserRepositoryTest {
     @Test
     void shouldSaveAndFindByUsername() {
         // Act
-        Optional<UserEntity> foundUser = repository.findByUsername("testuser");
+        Optional<UserEntity> foundUser = repository.findByUsername(TEST_USER);
 
         // Assert
         assertThat(foundUser).isPresent();
-        assertThat(foundUser.get().getUsername()).isEqualTo("testuser");
-        assertThat(foundUser.get().getEmail()).isEqualTo("test@example.com");
+        assertThat(foundUser.get().getUsername()).isEqualTo(TEST_USER);
+        assertThat(foundUser.get().getEmail()).isEqualTo(TEST_EMAIL);
     }
 
     /**
@@ -70,12 +79,12 @@ public class UserRepositoryTest {
     @Test
     void shouldSaveAndFindByEmail() {
         // Act
-        Optional<UserEntity> foundUser = repository.findByEmail("test@example.com");
+        Optional<UserEntity> foundUser = repository.findByEmail(TEST_EMAIL);
 
         // Assert
         assertThat(foundUser).isPresent();
-        assertThat(foundUser.get().getUsername()).isEqualTo("testuser");
-        assertThat(foundUser.get().getEmail()).isEqualTo("test@example.com");
+        assertThat(foundUser.get().getUsername()).isEqualTo(TEST_USER);
+        assertThat(foundUser.get().getEmail()).isEqualTo(TEST_EMAIL);
     }
 
     /**
@@ -85,7 +94,7 @@ public class UserRepositoryTest {
     @Test
     void shouldReturnEmptyWhenEmailNotFound() {
         // Act
-        Optional<UserEntity> foundUser = repository.findByEmail("non-existent@example.com");
+        Optional<UserEntity> foundUser = repository.findByEmail(TEST_NON_EXISTENT_EMAIL);
 
         // Assert
         assertThat(foundUser).isEmpty();
@@ -98,14 +107,14 @@ public class UserRepositoryTest {
     @Test
     void shouldSaveAndFindByUsernameOrEmail() {
         // Act
-        Optional<UserEntity> foundByUsername = repository.findByUsernameOrEmail("testuser", "wrong@example.com");
-        Optional<UserEntity> foundByEmail = repository.findByUsernameOrEmail("wronguser", "test@example.com");
+        Optional<UserEntity> foundByUsername = repository.findByUsernameOrEmail(TEST_USER, "wrong@example.com");
+        Optional<UserEntity> foundByEmail = repository.findByUsernameOrEmail("wronguser", TEST_EMAIL);
 
         // Assert
         assertThat(foundByUsername).isPresent();
-        assertThat(foundByUsername.get().getUsername()).isEqualTo("testuser");
+        assertThat(foundByUsername.get().getUsername()).isEqualTo(TEST_USER);
         assertThat(foundByEmail).isPresent();
-        assertThat(foundByEmail.get().getEmail()).isEqualTo("test@example.com");
+        assertThat(foundByEmail.get().getEmail()).isEqualTo(TEST_EMAIL);
     }
 
     /**
@@ -115,7 +124,7 @@ public class UserRepositoryTest {
     @Test
     void shouldReturnEmptyWhenUsernameOrEmailNotFound() {
         // Act
-        Optional<UserEntity> foundUser = repository.findByUsernameOrEmail("non-existent", "non-existent@example.com");
+        Optional<UserEntity> foundUser = repository.findByUsernameOrEmail("non-existent", TEST_NON_EXISTENT_EMAIL);
 
         // Assert
         assertThat(foundUser).isEmpty();

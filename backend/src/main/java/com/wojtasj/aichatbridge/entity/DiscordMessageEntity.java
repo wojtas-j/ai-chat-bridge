@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -18,6 +19,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
+@SuperBuilder
 @Slf4j
 public class DiscordMessageEntity extends BaseMessage{
     /**
@@ -26,4 +28,8 @@ public class DiscordMessageEntity extends BaseMessage{
     @Column(name = "discord_nickname", nullable = false)
     @NotBlank(message = "Discord nickname cannot be blank")
     private String discordNick;
+
+    public DiscordMessageEntity() {
+
+    }
 }

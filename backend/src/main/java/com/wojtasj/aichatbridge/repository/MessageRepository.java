@@ -1,12 +1,23 @@
 package com.wojtasj.aichatbridge.repository;
 
-import org.springframework.data.jpa.repository.JpaRepository;
 import com.wojtasj.aichatbridge.entity.MessageEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
 /**
- * JPA repository for performing CRUD operations on {@link MessageEntity} in the AI Chat Bridge application.
+ * Repository for managing MessageEntity in the AI Chat Bridge application.
  * @since 1.0
- * @see MessageEntity
  */
+@Repository
 public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
+    /**
+     * Finds all messages for a specific user with pagination.
+     * @param userId the ID of the user
+     * @param pageable pagination information
+     * @return Page<MessageEntity> with the user's messages
+     * @since 1.0
+     */
+    Page<MessageEntity> findByUserId(Long userId, Pageable pageable);
 }

@@ -1,12 +1,12 @@
 package com.wojtasj.aichatbridge.configuration;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.wojtasj.aichatbridge.dto.TokenResponse;
 import com.wojtasj.aichatbridge.entity.RefreshTokenEntity;
 import com.wojtasj.aichatbridge.entity.Role;
 import com.wojtasj.aichatbridge.entity.UserEntity;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.wojtasj.aichatbridge.repository.RefreshTokenRepository;
 import com.wojtasj.aichatbridge.repository.UserRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Set;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
  * Integration tests for SecurityConfig with real Spring context and H2 database.
@@ -38,10 +38,17 @@ class SecurityConfigTest {
 
     private static final String AUTH_URL = "/api/auth";
     private static final String MESSAGES_URL = "/api/messages";
+    private static final String ADMIN_MESSAGES_URL = "/api/messages/admin";
+    private static final String ACTUATOR_HEALTH_URL = "/actuator/health";
     private static final String TEST_USERNAME = "testuser";
+    private static final String ADMIN_USERNAME = "adminuser";
     private static final String TEST_EMAIL = "test@example.com";
     private static final String TEST_PASSWORD = "Password123!";
     private static final String TEST_REFRESH_TOKEN = "refresh-token";
+    private static final String TEST_API_KEY = "test-api-key";
+    private static final Integer MAX_TOKENS = 100;
+    private static final String DISCORD_MESSAGES_URL = "/api/discord-messages";
+    private static final String ADMIN_DISCORD_MESSAGES_URL = "/api/discord-messages/admin";
 
     @Autowired
     private MockMvc mockMvc;
@@ -74,8 +81,20 @@ class SecurityConfigTest {
                 .email(TEST_EMAIL)
                 .password(passwordEncoder.encode(TEST_PASSWORD))
                 .roles(Set.of(Role.USER))
+                .apiKey(TEST_API_KEY)
+                .maxTokens(MAX_TOKENS)
                 .build();
         userRepository.save(user);
+
+        UserEntity admin = UserEntity.builder()
+                .username(ADMIN_USERNAME)
+                .email("admin@example.com")
+                .password(passwordEncoder.encode(TEST_PASSWORD))
+                .roles(Set.of(Role.ADMIN))
+                .apiKey(TEST_API_KEY)
+                .maxTokens(MAX_TOKENS)
+                .build();
+        userRepository.save(admin);
 
         RefreshTokenEntity token = new RefreshTokenEntity();
         token.setToken(TEST_REFRESH_TOKEN);
@@ -126,9 +145,11 @@ class SecurityConfigTest {
             {
                 "username": "newuser",
                 "email": "newuser@example.com",
-                "password": "Password123!"
+                "password": "%s",
+                "apiKey": "%s",
+                "maxTokens": "%s"
             }
-        """;
+        """.formatted(TEST_PASSWORD, TEST_API_KEY, MAX_TOKENS);
 
         // Act & Assert
         mockMvc.perform(post(AUTH_URL + "/register")
@@ -193,7 +214,9 @@ class SecurityConfigTest {
         mockMvc.perform(post(AUTH_URL + "/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(refreshJson))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.type").value("/problems/authentication-failed"))
+                .andExpect(jsonPath("$.status").value(401));
     }
 
     /**
@@ -239,6 +262,265 @@ class SecurityConfigTest {
         mockMvc.perform(get(MESSAGES_URL)
                         .param("page", "0")
                         .param("size", "20"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.type").value("/problems/authentication-failed"))
+                .andExpect(jsonPath("$.status").value(401));
+    }
+
+    /**
+     * Tests that admin access to /api/messages/admin is allowed with valid token.
+     * @since 1.0
+     */
+    @Test
+    void shouldAllowAdminAccessToAdminMessages() throws Exception {
+        // Arrange
+        String loginJson = """
+            {
+                "username": "%s",
+                "password": "%s"
+            }
+        """.formatted(ADMIN_USERNAME, TEST_PASSWORD);
+
+        String responseBody = mockMvc.perform(post(AUTH_URL + "/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        TokenResponse tokenResponse = objectMapper.readValue(responseBody, TokenResponse.class);
+        String accessToken = "Bearer " + tokenResponse.accessToken();
+
+        // Act & Assert
+        mockMvc.perform(get(ADMIN_MESSAGES_URL)
+                        .header("Authorization", accessToken)
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isOk());
+    }
+
+    /**
+     * Tests that non-admin access to /api/messages/admin is blocked.
+     * @since 1.0
+     */
+    @Test
+    void shouldBlockNonAdminAccessToAdminMessages() throws Exception {
+        // Arrange
+        String loginJson = """
+            {
+                "username": "%s",
+                "password": "%s"
+            }
+        """.formatted(TEST_USERNAME, TEST_PASSWORD);
+
+        String responseBody = mockMvc.perform(post(AUTH_URL + "/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        TokenResponse tokenResponse = objectMapper.readValue(responseBody, TokenResponse.class);
+        String accessToken = "Bearer " + tokenResponse.accessToken();
+
+        // Act & Assert
+        mockMvc.perform(get(ADMIN_MESSAGES_URL)
+                        .header("Authorization", accessToken)
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.type").value("/problems/access-denied"))
+                .andExpect(jsonPath("$.status").value(403));
+    }
+
+    /**
+     * Tests that public access to /actuator/health is allowed without authentication.
+     * @since 1.0
+     */
+    @Test
+    void shouldAllowPublicAccessToActuatorHealth() throws Exception {
+        // Act & Assert
+        mockMvc.perform(get(ACTUATOR_HEALTH_URL))
+                .andExpect(status().isOk());
+    }
+
+    /**
+     * Tests that access with an invalid JWT token is blocked.
+     * @since 1.0
+     */
+    @Test
+    void shouldBlockInvalidJwtToken() throws Exception {
+        // Act & Assert
+        mockMvc.perform(get(MESSAGES_URL)
+                        .header("Authorization", "Bearer invalid-token")
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.type").value("/problems/authentication-failed"))
+                .andExpect(jsonPath("$.status").value(401));
+    }
+
+    /**
+     * Tests that POST request to /api/messages works without CSRF token.
+     * @since 1.0
+     */
+    @Test
+    void shouldAllowPostWithoutCsrf() throws Exception {
+        // Arrange
+        String loginJson = """
+            {
+                "username": "%s",
+                "password": "%s"
+            }
+        """.formatted(TEST_USERNAME, TEST_PASSWORD);
+
+        String responseBody = mockMvc.perform(post(AUTH_URL + "/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        TokenResponse tokenResponse = objectMapper.readValue(responseBody, TokenResponse.class);
+        String accessToken = "Bearer " + tokenResponse.accessToken();
+
+        String messageJson = """
+            {
+                "content": "Test message"
+            }
+        """;
+
+        // Act & Assert
+        mockMvc.perform(post(MESSAGES_URL)
+                        .header("Authorization", accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(messageJson))
+                .andExpect(status().isCreated());
+    }
+
+    /**
+     * Tests that authenticated user can successfully logout.
+     * @since 1.0
+     */
+    @Test
+    void shouldAllowAuthenticatedUserToLogout() throws Exception {
+        // Arrange
+        String loginJson = """
+        {
+            "username": "%s",
+            "password": "%s"
+        }
+    """.formatted(TEST_USERNAME, TEST_PASSWORD);
+
+        String responseBody = mockMvc.perform(post(AUTH_URL + "/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        TokenResponse tokenResponse = objectMapper.readValue(responseBody, TokenResponse.class);
+        String accessToken = "Bearer " + tokenResponse.accessToken();
+
+        // Act & Assert
+        mockMvc.perform(post(AUTH_URL + "/logout")
+                        .header("Authorization", accessToken)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        assert(refreshTokenRepository.findByToken(TEST_REFRESH_TOKEN).isEmpty());
+    }
+
+    /**
+     * Tests that unauthenticated access to logout is blocked.
+     * @since 1.0
+     */
+    @Test
+    void shouldBlockUnauthenticatedAccessToLogout() throws Exception {
+        // Act & Assert
+        mockMvc.perform(post(AUTH_URL + "/logout")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.type").value("/problems/authentication-failed"))
+                .andExpect(jsonPath("$.status").value(401));
+    }
+
+    /**
+     * Tests that admin access to /api/discord-messages/admin is allowed with valid token.
+     */
+    @Test
+    void shouldAllowAdminAccessToAdminDiscordMessages() throws Exception {
+        String loginJson = """
+        {
+            "username": "%s",
+            "password": "%s"
+        }
+    """.formatted(ADMIN_USERNAME, TEST_PASSWORD);
+
+        String responseBody = mockMvc.perform(post(AUTH_URL + "/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        TokenResponse tokenResponse = objectMapper.readValue(responseBody, TokenResponse.class);
+        String accessToken = "Bearer " + tokenResponse.accessToken();
+
+        mockMvc.perform(get(ADMIN_DISCORD_MESSAGES_URL)
+                        .header("Authorization", accessToken)
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isOk());
+    }
+
+    /**
+     * Tests that non-admin access to /api/discord-messages/admin is blocked.
+     */
+    @Test
+    void shouldBlockNonAdminAccessToAdminDiscordMessages() throws Exception {
+        String loginJson = """
+        {
+            "username": "%s",
+            "password": "%s"
+        }
+    """.formatted(TEST_USERNAME, TEST_PASSWORD);
+
+        String responseBody = mockMvc.perform(post(AUTH_URL + "/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        TokenResponse tokenResponse = objectMapper.readValue(responseBody, TokenResponse.class);
+        String accessToken = "Bearer " + tokenResponse.accessToken();
+
+        mockMvc.perform(get(ADMIN_DISCORD_MESSAGES_URL)
+                        .header("Authorization", accessToken)
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.type").value("/problems/access-denied"))
+                .andExpect(jsonPath("$.status").value(403));
+    }
+
+    /**
+     * Tests that unauthenticated access to /api/discord-messages/admin is blocked.
+     */
+    @Test
+    void shouldBlockUnauthenticatedAccessToAdminDiscordMessages() throws Exception {
+        mockMvc.perform(get(ADMIN_DISCORD_MESSAGES_URL)
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.type").value("/problems/authentication-failed"))
+                .andExpect(jsonPath("$.status").value(401));
     }
 }

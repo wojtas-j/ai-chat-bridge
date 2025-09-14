@@ -71,6 +71,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/logout").authenticated()
                         .requestMatchers("/api/messages/admin").hasRole("ADMIN")
                         .requestMatchers("/api/messages/**").authenticated()
+                        .requestMatchers("/api/discord-messages/admin").hasRole("ADMIN")
+                        .requestMatchers("/api/discord-messages/**").hasRole("ADMIN")
                         .requestMatchers("/api/openai/**").authenticated()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/actuator/**").hasRole("ADMIN")

@@ -97,15 +97,17 @@ class MessageRepositoryTest {
         MessageEntity message1 = MessageEntity.builder()
                 .content("First message")
                 .user(user)
-                .createdAt(LocalDateTime.now().minusHours(1))
                 .build();
+        repository.save(message1);
+        message1.setCreatedAt(LocalDateTime.now());
+
         MessageEntity message2 = MessageEntity.builder()
                 .content("Second message")
                 .user(user)
-                .createdAt(LocalDateTime.now())
                 .build();
-        repository.saveAll(List.of(message1, message2));
-
+        repository.save(message2);
+        message1.setCreatedAt(LocalDateTime.now().minusDays(1));
+        
         Pageable pageable = PageRequest.of(0, 1, Sort.by("createdAt").descending());
 
         // Act

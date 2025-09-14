@@ -47,6 +47,8 @@ class SecurityConfigTest {
     private static final String TEST_REFRESH_TOKEN = "refresh-token";
     private static final String TEST_API_KEY = "test-api-key";
     private static final Integer MAX_TOKENS = 100;
+    private static final String DISCORD_MESSAGES_URL = "/api/discord-messages";
+    private static final String ADMIN_DISCORD_MESSAGES_URL = "/api/discord-messages/admin";
 
     @Autowired
     private MockMvc mockMvc;
@@ -447,4 +449,78 @@ class SecurityConfigTest {
                 .andExpect(jsonPath("$.status").value(401));
     }
 
+    /**
+     * Tests that admin access to /api/discord-messages/admin is allowed with valid token.
+     */
+    @Test
+    void shouldAllowAdminAccessToAdminDiscordMessages() throws Exception {
+        String loginJson = """
+        {
+            "username": "%s",
+            "password": "%s"
+        }
+    """.formatted(ADMIN_USERNAME, TEST_PASSWORD);
+
+        String responseBody = mockMvc.perform(post(AUTH_URL + "/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        TokenResponse tokenResponse = objectMapper.readValue(responseBody, TokenResponse.class);
+        String accessToken = "Bearer " + tokenResponse.accessToken();
+
+        mockMvc.perform(get(ADMIN_DISCORD_MESSAGES_URL)
+                        .header("Authorization", accessToken)
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isOk());
+    }
+
+    /**
+     * Tests that non-admin access to /api/discord-messages/admin is blocked.
+     */
+    @Test
+    void shouldBlockNonAdminAccessToAdminDiscordMessages() throws Exception {
+        String loginJson = """
+        {
+            "username": "%s",
+            "password": "%s"
+        }
+    """.formatted(TEST_USERNAME, TEST_PASSWORD);
+
+        String responseBody = mockMvc.perform(post(AUTH_URL + "/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        TokenResponse tokenResponse = objectMapper.readValue(responseBody, TokenResponse.class);
+        String accessToken = "Bearer " + tokenResponse.accessToken();
+
+        mockMvc.perform(get(ADMIN_DISCORD_MESSAGES_URL)
+                        .header("Authorization", accessToken)
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.type").value("/problems/access-denied"))
+                .andExpect(jsonPath("$.status").value(403));
+    }
+
+    /**
+     * Tests that unauthenticated access to /api/discord-messages/admin is blocked.
+     */
+    @Test
+    void shouldBlockUnauthenticatedAccessToAdminDiscordMessages() throws Exception {
+        mockMvc.perform(get(ADMIN_DISCORD_MESSAGES_URL)
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.type").value("/problems/authentication-failed"))
+                .andExpect(jsonPath("$.status").value(401));
+    }
 }

@@ -28,6 +28,13 @@ public class UserRepositoryTest {
     private static final String TEST_EMAIL = "test@example.com";
     private static final String TEST_NON_EXISTENT_EMAIL = "non-existent@example.com";
 
+    @Autowired
+    private UserRepository repository;
+
+    /**
+     * Sets up the test environment by creating a sample UserEntity.
+     * @since 1.0
+     */
     @BeforeEach
     void setUp() {
         UserEntity testUser = UserEntity.builder()
@@ -40,9 +47,6 @@ public class UserRepositoryTest {
                 .build();
         repository.save(testUser);
     }
-
-    @Autowired
-    private UserRepository repository;
 
     /**
      * Tests saving a user and finding it by username.

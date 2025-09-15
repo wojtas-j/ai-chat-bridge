@@ -74,9 +74,10 @@ public class DiscordBotServiceImpl implements DiscordBotService {
                 .flatMap(channel ->
                         // Save user message to the database
                         Mono.fromCallable(() -> {
-                                    DiscordMessageEntity userMessage = new DiscordMessageEntity();
-                                    userMessage.setContent(content);
-                                    userMessage.setDiscordNick(discordNick);
+                                    DiscordMessageEntity userMessage = DiscordMessageEntity.builder()
+                                            .content(content)
+                                            .discordNick(discordNick)
+                                            .build();
                                     return discordMessageRepository.save(userMessage);
                                 })
                                 .subscribeOn(Schedulers.boundedElastic())

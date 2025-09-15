@@ -88,6 +88,55 @@ class GlobalExceptionHandlerTest {
     }
 
     /**
+     * Tests handling of {@link OpenAIServiceException} for invalid model.
+     * @since 1.0
+     */
+    @Test
+    void shouldHandleInvalidOpenAIModelException() throws Exception {
+        mockMvc.perform(post("/test/openai-invalid-model")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("/problems/openai-service-error"))
+                .andExpect(jsonPath("$.title").value("OpenAI Service Error"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Invalid OpenAI model: test-model"))
+                .andExpect(jsonPath("$.instance").value("/test/openai-invalid-model"));
+    }
+
+    /**
+     * Tests handling of {@link OpenAIServiceException} for invalid api-key.
+     * @since 1.0
+     */
+    @Test
+    void shouldHandleInvalidOpenAIApiKeyException() throws Exception {
+        mockMvc.perform(post("/test/openai-invalid-api-key")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.type").value("/problems/openai-service-error"))
+                .andExpect(jsonPath("$.title").value("OpenAI Service Error"))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.detail").value("Invalid OpenAI API key"))
+                .andExpect(jsonPath("$.instance").value("/test/openai-invalid-api-key"));
+    }
+
+    /**
+     * Tests handling of {@link OpenAIServiceException} for too many requests.
+     * @since 1.0
+     */
+    @Test
+    void shouldHandleTooManyRequestsOpenAIException() throws Exception {
+        mockMvc.perform(post("/test/openai-too-many-requests")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.type").value("/problems/openai-service-error"))
+                .andExpect(jsonPath("$.title").value("OpenAI Service Error"))
+                .andExpect(jsonPath("$.status").value(429))
+                .andExpect(jsonPath("$.detail").value("Too many requests to OpenAI API"))
+                .andExpect(jsonPath("$.instance").value("/test/openai-too-many-requests"));
+    }
+
+
+    /**
      * Tests handling of {@link DiscordServiceException}.
      * @since 1.0
      */
@@ -387,6 +436,21 @@ class GlobalExceptionHandlerTest {
         @PostMapping("/test/message-not-found")
         public void throwMessageNotFoundException() {
             throw new MessageNotFoundException("Message not found with ID: 999");
+        }
+
+        @PostMapping("/test/openai-invalid-model")
+        public void throwInvalidOpenAIModelException() {
+            throw new OpenAIServiceException("Invalid OpenAI model: test-model");
+        }
+
+        @PostMapping("/test/openai-too-many-requests")
+        public void throwTooManyRequestsOpenAIException() {
+            throw new OpenAIServiceException("Too many requests to OpenAI API");
+        }
+
+        @PostMapping("/test/openai-invalid-api-key")
+        public void throwTInvalidApiKeyOpenAIException() {
+            throw new OpenAIServiceException("Invalid OpenAI API key");
         }
     }
 }

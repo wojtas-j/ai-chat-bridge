@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
  *     <li>{@link #botEnabled} - whether the Discord bot is enabled and should respond to messages</li>
  *     <li>{@link #apiKey} - the OpenAI API key used for Discord bot interactions</li>
  *     <li>{@link #maxTokens} - the maximum tokens for OpenAI responses for Discord messages</li>
+ *     <li>{@link #openAiModel} - the OpenAI model for Discord messages</li>
  * </ul>
  * @since 1.0
  */
@@ -27,4 +28,5 @@ public class DiscordProperties {
     private boolean botEnabled;
     private String apiKey;
     private String maxTokens;
+    private String openAiModel;
 }

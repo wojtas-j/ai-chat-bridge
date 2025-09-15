@@ -30,7 +30,7 @@ public class AuthenticationServiceImpl implements AuthenticationService, UserDet
 
     /**
      * Registers a new user with the provided details.
-     * @param request the registration request containing username, email, password, apiKey, and maxTokens
+     * @param request the registration request containing username, email, password, apiKey, maxTokens, and model
      * @return the registered UserEntity
      * @throws AuthenticationException if the username or email is already taken
      * @since 1.0
@@ -54,6 +54,7 @@ public class AuthenticationServiceImpl implements AuthenticationService, UserDet
                 .password(passwordEncoder.encode(request.password()))
                 .apiKey(request.apiKey())
                 .maxTokens(request.maxTokens())
+                .model(request.model())
                 .roles(Set.of(Role.USER))
                 .build();
         UserEntity savedUser = userRepository.save(user);

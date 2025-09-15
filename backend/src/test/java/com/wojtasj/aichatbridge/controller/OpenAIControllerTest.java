@@ -52,6 +52,7 @@ class OpenAIControllerTest {
     private static final String TEST_USERNAME = "testuser";
     private static final String TEST_PASSWORD = "password123P!";
     private static final String TEST_API_KEY = "sk-test-1234567890";
+    private static final String TEST_MODEL = "test-model";
     private static final String TEST_MESSAGE_CONTENT = "Hello, AI!";
     private static final String TEST_RESPONSE_CONTENT = "AI response";
     private static final int TEST_MAX_TOKENS = 1000;
@@ -100,6 +101,7 @@ class OpenAIControllerTest {
                 .password(TEST_PASSWORD)
                 .roles(Set.of(Role.USER))
                 .apiKey(TEST_API_KEY)
+                .model(TEST_MODEL)
                 .maxTokens(TEST_MAX_TOKENS)
                 .build();
 
@@ -263,10 +265,10 @@ class OpenAIControllerTest {
             mockMvc.perform(post(OPENAI_URL)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(messageDTO)))
-                    .andExpect(status().isBadRequest())
+                    .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.type").value("/problems/openai-service-error"))
                     .andExpect(jsonPath("$.title").value("OpenAI Service Error"))
-                    .andExpect(jsonPath("$.status").value(400))
+                    .andExpect(jsonPath("$.status").value(401))
                     .andExpect(jsonPath("$.detail").value("Invalid OpenAI API key"));
 
             // Verify

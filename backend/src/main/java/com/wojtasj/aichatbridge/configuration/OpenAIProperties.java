@@ -10,7 +10,6 @@ import org.springframework.stereotype.Component;
  * <p>Properties include:</p>
  * <ul>
  *     <li>{@link #baseUrl} - the base URL for API requests (e.g., https://api.openai.com)</li>
- *     <li>{@link #model} - the default model to use for requests (e.g., "gpt-4")</li>
  *     <li>{@link #chatCompletionsEndpoint} - the endpoint for chat completions (default: "/chat/completions")</li>
  * </ul>
  * @since 1.0
@@ -22,6 +21,5 @@ import org.springframework.stereotype.Component;
 @Setter
 public class OpenAIProperties {
     private String baseUrl;
-    private String model;
     private String chatCompletionsEndpoint = "/chat/completions";
 }

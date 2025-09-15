@@ -31,11 +31,14 @@ class OpenAIServiceTest {
     private static final String TEST_MESSAGE_CONTENT = "Hello!";
     private static final String EXPECTED_RESPONSE_CONTENT = "Hi, hello!";
     private static final String TEST_API_KEY = "test-key";
+    private static final String TEST_MODEL = "gpt-4o-mini";
+    private static final String INVALID_MODEL = "invalid-model";
     private static final int TEST_MAX_TOKENS = 100;
     private static final String CONTENT_TYPE = "application/json";
     private static final String CONTENT_KEY = "content";
     private static final String TOO_MANY_REQUESTS_RESPONSE = "{\"error\":\"Too Many Requests\"}";
     private static final String INVALID_JSON_RESPONSE = "{";
+    private static final String INVALID_RESPONSE_STRUCTURE = "{\"invalid\":[]}";
     private static final String EMPTY_CHOICES_RESPONSE = "{\"choices\":[]}";
     private static final String INTERNAL_SERVER_ERROR_RESPONSE = "{\"error\":\"Internal Server Error\"}";
     private static final String MESSAGE_CONTENT_CANNOT_BE_NULL = "Message content cannot be null or empty";
@@ -67,6 +70,7 @@ class OpenAIServiceTest {
                 .password("password123P!")
                 .roles(Set.of(Role.USER))
                 .apiKey(TEST_API_KEY)
+                .model(TEST_MODEL)
                 .maxTokens(TEST_MAX_TOKENS)
                 .build();
     }
@@ -83,7 +87,8 @@ class OpenAIServiceTest {
     }
 
     /**
-     * Sets up a WireMock stub for the /models endpoint to simulate successful API key validation.
+     * Sets up a WireMock stub for the /models endpoint to simulate successful API key and model validation.
+     *
      * @since 1.0
      */
     private void stubForModelsEndpoint() {
@@ -92,7 +97,7 @@ class OpenAIServiceTest {
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withHeader("Content-Type", CONTENT_TYPE)
-                        .withBody("{\"data\":[]}")));
+                        .withBody(String.format("{\"data\":[{\"id\":\"%s\"}]}", OpenAIServiceTest.TEST_MODEL))));
     }
 
     /**
@@ -382,21 +387,37 @@ class OpenAIServiceTest {
     }
 
     /**
-     * Tests successful validation of an API key.
+     * Tests throwing {@link OpenAIServiceException} when the model is null for non-Discord messages.
      * @since 1.0
      */
     @Test
-    void shouldValidateApiKeySuccessfully() {
+    void shouldThrowExceptionOnNullModelForNonDiscordMessage() {
+        // Arrange
+        MessageEntity input = createMessageEntity(TEST_MESSAGE_CONTENT, userEntity);
+        userEntity.setModel(null);
+
+        // Act & Assert
+        OpenAIServiceException exception = assertThrows(OpenAIServiceException.class,
+                () -> openAIService.sendMessageToOpenAI(input, false, userEntity));
+        assertThat(exception.getMessage()).contains("Model required for non-Discord messages");
+    }
+
+    /**
+     * Tests successful validation of an API key and model.
+     * @since 1.0
+     */
+    @Test
+    void shouldValidateApiKeyAndModelSuccessfully() {
         // Arrange
         wireMockServer.stubFor(get(urlEqualTo("/models"))
                 .withHeader("Authorization", equalTo("Bearer " + TEST_API_KEY))
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withHeader("Content-Type", CONTENT_TYPE)
-                        .withBody("{\"data\":[]}")));
+                        .withBody(String.format("{\"data\":[{\"id\":\"%s\"}]}", TEST_MODEL))));
 
         // Act
-        openAIService.validateApiKey(TEST_API_KEY);
+        openAIService.validateApiKeyAndModel(TEST_API_KEY, TEST_MODEL);
 
         // Assert
         assertThat(wireMockServer.getAllServeEvents()).hasSize(1);
@@ -418,7 +439,7 @@ class OpenAIServiceTest {
 
         // Act & Assert
         OpenAIServiceException exception = assertThrows(OpenAIServiceException.class,
-                () -> openAIService.validateApiKey("invalid-key"));
+                () -> openAIService.validateApiKeyAndModel("invalid-key", TEST_MODEL));
         assertThat(exception.getMessage()).contains("Invalid OpenAI API key: 401");
     }
 
@@ -430,8 +451,100 @@ class OpenAIServiceTest {
     void shouldThrowExceptionOnNullApiKeyValidation() {
         // Act & Assert
         OpenAIServiceException exception = assertThrows(OpenAIServiceException.class,
-                () -> openAIService.validateApiKey(null));
+                () -> openAIService.validateApiKeyAndModel(null, TEST_MODEL));
         assertThat(exception.getMessage()).contains("API key cannot be null or empty during validation");
+    }
+
+    /**
+     * Tests throwing {@link OpenAIServiceException} when validating a null model.
+     * @since 1.0
+     */
+    @Test
+    void shouldThrowExceptionOnNullModelValidation() {
+        // Act & Assert
+        OpenAIServiceException exception = assertThrows(OpenAIServiceException.class,
+                () -> openAIService.validateApiKeyAndModel(TEST_API_KEY, null));
+        assertThat(exception.getMessage()).contains("Model cannot be null or empty during validation");
+    }
+
+    /**
+     * Tests throwing {@link OpenAIServiceException} when validating an invalid model.
+     * @since 1.0
+     */
+    @Test
+    void shouldThrowExceptionOnInvalidModel() {
+        // Arrange
+        wireMockServer.stubFor(get(urlEqualTo("/models"))
+                .withHeader("Authorization", equalTo("Bearer " + TEST_API_KEY))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", CONTENT_TYPE)
+                        .withBody("{\"data\":[{\"id\":\"gpt-4o-mini\"},{\"id\":\"gpt-4\"}]}")));
+
+        // Act & Assert
+        OpenAIServiceException exception = assertThrows(OpenAIServiceException.class,
+                () -> openAIService.validateApiKeyAndModel(TEST_API_KEY, INVALID_MODEL));
+        assertThat(exception.getMessage()).contains("Invalid OpenAI model: " + INVALID_MODEL);
+    }
+
+    /**
+     * Tests throwing {@link OpenAIServiceException} when validating with too many requests.
+     * @since 1.0
+     */
+    @Test
+    void shouldThrowExceptionOnTooManyRequestsValidation() {
+        // Arrange
+        wireMockServer.stubFor(get(urlEqualTo("/models"))
+                .withHeader("Authorization", equalTo("Bearer " + TEST_API_KEY))
+                .willReturn(aResponse()
+                        .withStatus(429)
+                        .withHeader("Content-Type", CONTENT_TYPE)
+                        .withBody(TOO_MANY_REQUESTS_RESPONSE)));
+
+        // Act & Assert
+        OpenAIServiceException exception = assertThrows(OpenAIServiceException.class,
+                () -> openAIService.validateApiKeyAndModel(TEST_API_KEY, TEST_MODEL));
+        assertThat(exception.getMessage()).contains("Too many requests to OpenAI API");
+    }
+
+    /**
+     * Tests throwing {@link OpenAIServiceException} when validating with invalid response structure.
+     * @since 1.0
+     */
+    @Test
+    void shouldThrowExceptionOnInvalidResponseStructure() {
+        // Arrange
+        wireMockServer.stubFor(get(urlEqualTo("/models"))
+                .withHeader("Authorization", equalTo("Bearer " + TEST_API_KEY))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", CONTENT_TYPE)
+                        .withBody(INVALID_RESPONSE_STRUCTURE)));
+
+        // Act & Assert
+        OpenAIServiceException exception = assertThrows(OpenAIServiceException.class,
+                () -> openAIService.validateApiKeyAndModel(TEST_API_KEY, TEST_MODEL));
+        assertThat(exception.getMessage()).contains("Invalid response structure from OpenAI models endpoint");
+    }
+
+    /**
+     * Tests throwing {@link OpenAIServiceException} when validating with server error.
+     * @since 1.0
+     */
+    @Test
+    void shouldThrowExceptionOnServerErrorValidation() {
+        // Arrange
+        wireMockServer.stubFor(get(urlEqualTo("/models"))
+                .withHeader("Authorization", equalTo("Bearer " + TEST_API_KEY))
+                .willReturn(aResponse()
+                        .withStatus(500)
+                        .withHeader("Content-Type", CONTENT_TYPE)
+                        .withBody(INTERNAL_SERVER_ERROR_RESPONSE)));
+
+        // Act & Assert
+        OpenAIServiceException exception = assertThrows(OpenAIServiceException.class,
+                () -> openAIService.validateApiKeyAndModel(TEST_API_KEY, TEST_MODEL));
+        assertThat(exception.getMessage()).contains("OpenAI API server error: 500");
     }
 
     /**

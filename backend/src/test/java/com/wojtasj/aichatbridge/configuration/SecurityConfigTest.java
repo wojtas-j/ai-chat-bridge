@@ -46,8 +46,8 @@ class SecurityConfigTest {
     private static final String TEST_PASSWORD = "Password123!";
     private static final String TEST_REFRESH_TOKEN = "refresh-token";
     private static final String TEST_API_KEY = "test-api-key";
+    private static final String TEST_MODEL = "test-model";
     private static final Integer MAX_TOKENS = 100;
-    private static final String DISCORD_MESSAGES_URL = "/api/discord-messages";
     private static final String ADMIN_DISCORD_MESSAGES_URL = "/api/discord-messages/admin";
 
     @Autowired
@@ -147,9 +147,10 @@ class SecurityConfigTest {
                 "email": "newuser@example.com",
                 "password": "%s",
                 "apiKey": "%s",
+                "model": "%s",
                 "maxTokens": "%s"
             }
-        """.formatted(TEST_PASSWORD, TEST_API_KEY, MAX_TOKENS);
+        """.formatted(TEST_PASSWORD, TEST_API_KEY, TEST_MODEL, MAX_TOKENS);
 
         // Act & Assert
         mockMvc.perform(post(AUTH_URL + "/register")

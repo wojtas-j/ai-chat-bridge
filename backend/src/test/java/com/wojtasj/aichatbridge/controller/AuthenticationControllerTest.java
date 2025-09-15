@@ -3,6 +3,7 @@ package com.wojtasj.aichatbridge.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.wojtasj.aichatbridge.configuration.JwtProperties;
 import com.wojtasj.aichatbridge.configuration.SecurityConfig;
 import com.wojtasj.aichatbridge.dto.LoginRequest;
 import com.wojtasj.aichatbridge.dto.RefreshTokenRequest;
@@ -16,6 +17,9 @@ import com.wojtasj.aichatbridge.exception.UserAlreadyExistsException;
 import com.wojtasj.aichatbridge.service.AuthenticationService;
 import com.wojtasj.aichatbridge.service.JwtTokenProviderImpl;
 import com.wojtasj.aichatbridge.service.RefreshTokenService;
+import io.github.resilience4j.ratelimiter.RateLimiter;
+import io.github.resilience4j.ratelimiter.RateLimiterConfig;
+import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -60,7 +64,8 @@ class AuthenticationControllerTest {
     private static final String TEST_REFRESH_TOKEN = "refresh-token";
     private static final String INVALID_TOKEN = "invalid-token";
     private static final String TEST_API_KEY = "testToken";
-    private static final Integer MAX_TOKENS = 100;
+    private static final int MAX_TOKENS = 100;
+    private static final String TEST_MODEL = "test-model";
 
     @Autowired
     private MockMvc mockMvc;
@@ -80,6 +85,10 @@ class AuthenticationControllerTest {
     @SuppressWarnings("unused")
     @MockitoBean
     private RefreshTokenService refreshTokenService;
+
+    @SuppressWarnings("unused")
+    @MockitoBean
+    private JwtProperties jwtProperties;
 
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule())
@@ -189,7 +198,7 @@ class AuthenticationControllerTest {
         @Test
         void shouldRegisterUserSuccessfully() throws Exception {
             // Arrange
-            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, TEST_PASSWORD, TEST_API_KEY, MAX_TOKENS);
+            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, TEST_PASSWORD, TEST_API_KEY, MAX_TOKENS, TEST_MODEL);
             when(authenticationService.register(request)).thenReturn(userEntity);
 
             // Act & Assert
@@ -214,7 +223,7 @@ class AuthenticationControllerTest {
         @Test
         void shouldRejectRegistrationWithEmptyUsername() throws Exception {
             // Arrange
-            RegisterRequest request = new RegisterRequest("", TEST_EMAIL, TEST_PASSWORD, TEST_API_KEY, MAX_TOKENS);
+            RegisterRequest request = new RegisterRequest("", TEST_EMAIL, TEST_PASSWORD, TEST_API_KEY, MAX_TOKENS, TEST_MODEL);
 
             // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/register")
@@ -237,7 +246,7 @@ class AuthenticationControllerTest {
         @Test
         void shouldRejectRegistrationWithInvalidEmail() throws Exception {
             // Arrange
-            RegisterRequest request = new RegisterRequest(TEST_USERNAME, "invalid-email", TEST_PASSWORD, TEST_API_KEY, MAX_TOKENS);
+            RegisterRequest request = new RegisterRequest(TEST_USERNAME, "invalid-email", TEST_PASSWORD, TEST_API_KEY, MAX_TOKENS, TEST_MODEL);
 
             // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/register")
@@ -260,7 +269,7 @@ class AuthenticationControllerTest {
         @Test
         void shouldRejectRegistrationWithInvalidPassword() throws Exception {
             // Arrange
-            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, "invalid", TEST_API_KEY, MAX_TOKENS);
+            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, "invalid", TEST_API_KEY, MAX_TOKENS, TEST_MODEL);
 
             // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/register")
@@ -283,7 +292,7 @@ class AuthenticationControllerTest {
         @Test
         void shouldRejectRegistrationWhenUsernameTaken() throws Exception {
             // Arrange
-            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, TEST_PASSWORD, TEST_API_KEY, MAX_TOKENS);
+            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, TEST_PASSWORD, TEST_API_KEY, MAX_TOKENS, TEST_MODEL);
             when(authenticationService.register(request))
                     .thenThrow(new UserAlreadyExistsException("Username already taken"));
 
@@ -308,7 +317,7 @@ class AuthenticationControllerTest {
         @Test
         void shouldRejectRegistrationWithEmptyApiKey() throws Exception {
             // Arrange
-            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, TEST_PASSWORD, "", MAX_TOKENS);
+            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, TEST_PASSWORD, "", MAX_TOKENS, TEST_MODEL);
 
             // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/register")
@@ -332,7 +341,7 @@ class AuthenticationControllerTest {
         void shouldRejectRegistrationWithNegativeMaxTokens() throws Exception {
             // Arrange
             @SuppressWarnings("DataFlowIssue")
-            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, TEST_PASSWORD, TEST_API_KEY, -1);
+            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, TEST_PASSWORD, TEST_API_KEY, -1, TEST_MODEL);
 
             // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/register")
@@ -355,7 +364,7 @@ class AuthenticationControllerTest {
         @Test
         void shouldRejectRegistrationWithNullMaxTokens() throws Exception {
             // Arrange
-            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, TEST_PASSWORD, TEST_API_KEY, null);
+            RegisterRequest request = new RegisterRequest(TEST_USERNAME, TEST_EMAIL, TEST_PASSWORD, TEST_API_KEY, null, TEST_MODEL);
 
             // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/register")
@@ -466,7 +475,6 @@ class AuthenticationControllerTest {
          * @since 1.0
          */
         @Test
-        @WithMockUser(username = TEST_USERNAME)
         void shouldRefreshTokenSuccessfully() throws Exception {
             // Arrange
             RefreshTokenRequest request = new RefreshTokenRequest(TEST_REFRESH_TOKEN);
@@ -496,11 +504,11 @@ class AuthenticationControllerTest {
          * @since 1.0
          */
         @Test
-        @WithMockUser(username = TEST_USERNAME)
         void shouldRejectRefreshWithInvalidToken() throws Exception {
             // Arrange
             RefreshTokenRequest request = new RefreshTokenRequest(INVALID_TOKEN);
-            when(refreshTokenService.validateRefreshToken(INVALID_TOKEN)).thenReturn(null);
+            when(refreshTokenService.validateRefreshToken(INVALID_TOKEN))
+                    .thenThrow(new AuthenticationException("Invalid refresh token"));
 
             // Act & Assert
             mockMvc.perform(post(AUTH_URL + "/refresh")
@@ -520,69 +528,10 @@ class AuthenticationControllerTest {
         }
 
         /**
-         * Tests rejecting token refresh when user does not match.
-         * @since 1.0
-         */
-        @Test
-        @WithMockUser(username = TEST_USERNAME)
-        void shouldRejectRefreshWhenUserDoesNotMatch() throws Exception {
-            // Arrange
-            RefreshTokenRequest request = new RefreshTokenRequest(TEST_REFRESH_TOKEN);
-            UserEntity otherUser = UserEntity.builder()
-                    .username("otheruser")
-                    .email("other@example.com")
-                    .password("encodedPassword")
-                    .roles(Set.of(Role.USER))
-                    .build();
-            RefreshTokenEntity refreshToken = createRefreshTokenEntity(TEST_REFRESH_TOKEN, otherUser);
-            when(refreshTokenService.validateRefreshToken(TEST_REFRESH_TOKEN)).thenReturn(refreshToken);
-
-            // Act & Assert
-            mockMvc.perform(post(AUTH_URL + "/refresh")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isUnauthorized())
-                    .andExpect(jsonPath("$.type").value("/problems/authentication-failed"))
-                    .andExpect(jsonPath("$.title").value("Authentication Failed"))
-                    .andExpect(jsonPath("$.status").value(401))
-                    .andExpect(jsonPath("$.detail").value("Refresh token does not match authenticated user"));
-
-            // Verify
-            verify(refreshTokenService).validateRefreshToken(TEST_REFRESH_TOKEN);
-            verify(refreshTokenService, never()).deleteByUser(any());
-            verify(refreshTokenService, never()).generateRefreshToken(any());
-            verify(jwtTokenProvider, never()).generateToken(any());
-        }
-
-        /**
-         * Tests rejecting token refresh when not authenticated.
-         * @since 1.0
-         */
-        @Test
-        void shouldRejectRefreshWhenNotAuthenticated() throws Exception {
-            // Arrange
-            RefreshTokenRequest request = new RefreshTokenRequest(TEST_REFRESH_TOKEN);
-
-            // Act & Assert
-            mockMvc.perform(post(AUTH_URL + "/refresh")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isUnauthorized())
-                    .andExpect(jsonPath("$.type").value("/problems/authentication-failed"))
-                    .andExpect(jsonPath("$.title").value("Authentication Failed"))
-                    .andExpect(jsonPath("$.status").value(401))
-                    .andExpect(jsonPath("$.detail").exists());
-
-            // Verify
-            verify(refreshTokenService, never()).validateRefreshToken(any());
-        }
-
-        /**
          * Tests rejecting token refresh with empty refresh token.
          * @since 1.0
          */
         @Test
-        @WithMockUser(username = TEST_USERNAME)
         void shouldRejectRefreshWithEmptyToken() throws Exception {
             // Arrange
             RefreshTokenRequest request = new RefreshTokenRequest("");
@@ -599,6 +548,39 @@ class AuthenticationControllerTest {
 
             // Verify
             verify(refreshTokenService, never()).validateRefreshToken(any());
+        }
+
+        /**
+         * Tests rate limiting for token refresh endpoint.
+         * @since 1.0
+         */
+        @Test
+        void shouldRejectRefreshWhenRateLimitExceeded() throws Exception {
+            // Arrange
+            RefreshTokenRequest request = new RefreshTokenRequest(TEST_REFRESH_TOKEN);
+            RateLimiter rateLimiter = mock(RateLimiter.class);
+            RateLimiterConfig rateLimiterConfig = RateLimiterConfig.ofDefaults();
+            when(rateLimiter.getName()).thenReturn("refreshToken");
+            when(rateLimiter.getRateLimiterConfig()).thenReturn(rateLimiterConfig);
+            RequestNotPermitted exception = RequestNotPermitted.createRequestNotPermitted(rateLimiter);
+            when(refreshTokenService.validateRefreshToken(TEST_REFRESH_TOKEN)).thenThrow(exception);
+
+            // Act & Assert
+            mockMvc.perform(post(AUTH_URL + "/refresh")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isTooManyRequests())
+                    .andExpect(jsonPath("$.type").value("/problems/rate-limit-exceeded"))
+                    .andExpect(jsonPath("$.title").value("Rate Limit Exceeded"))
+                    .andExpect(jsonPath("$.status").value(429))
+                    .andExpect(jsonPath("$.detail").value("Too many requests - rate limit exceeded for RateLimiter 'refreshToken' does not permit further calls"))
+                    .andExpect(jsonPath("$.instance").value(AUTH_URL + "/refresh"));
+
+            // Verify
+            verify(refreshTokenService).validateRefreshToken(TEST_REFRESH_TOKEN);
+            verify(refreshTokenService, never()).deleteByUser(any());
+            verify(refreshTokenService, never()).generateRefreshToken(any());
+            verify(jwtTokenProvider, never()).generateToken(any());
         }
     }
 

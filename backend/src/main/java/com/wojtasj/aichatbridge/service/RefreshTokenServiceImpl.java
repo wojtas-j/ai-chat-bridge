@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -23,12 +25,13 @@ import java.util.UUID;
 @Slf4j
 public class RefreshTokenServiceImpl implements RefreshTokenService {
 
+    private static final int MAX_REFRESH_TOKENS_PER_USER = 5;
+
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtProperties jwtProperties;
 
     /**
-     * Generates a new refresh token for the given user.
-     *
+     * Generates a new refresh token for the given user, respecting the maximum token limit.
      * @param user the user for whom to generate the token
      * @return the generated RefreshTokenEntity
      * @since 1.0
@@ -42,10 +45,24 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
             log.error("Invalid refresh token expiration time: {}", expirationDays);
             throw new IllegalArgumentException("Refresh token expiration time must be positive");
         }
+
+        List<RefreshTokenEntity> userTokens = refreshTokenRepository.findByUser(user);
+        if (userTokens.size() >= MAX_REFRESH_TOKENS_PER_USER) {
+            log.info("Maximum refresh tokens ({}) reached for user: {}. Deleting oldest token.",
+                    MAX_REFRESH_TOKENS_PER_USER, user.getUsername());
+            userTokens.stream()
+                    .min(Comparator.comparing(RefreshTokenEntity::getCreatedAt))
+                    .ifPresent(oldestToken -> {
+                        refreshTokenRepository.delete(oldestToken);
+                        log.info("Deleted oldest refresh token for user: {}", user.getUsername());
+                    });
+        }
+
         String token = UUID.randomUUID().toString();
         RefreshTokenEntity refreshToken = RefreshTokenEntity.builder()
                 .token(token)
                 .user(user)
+                .expiryDate(LocalDateTime.now().plusDays(expirationDays))
                 .build();
         RefreshTokenEntity savedToken = refreshTokenRepository.save(refreshToken);
         log.info("Refresh token generated successfully for user: {}", user.getUsername());
@@ -54,7 +71,6 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
 
     /**
      * Validates a refresh token and returns the associated entity.
-     *
      * @param token the refresh token to validate
      * @return the RefreshTokenEntity
      * @throws AuthenticationException if the token is invalid or expired
@@ -82,7 +98,6 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
 
     /**
      * Deletes all refresh tokens for a given user.
-     *
      * @param user the user whose tokens should be deleted
      * @since 1.0
      */

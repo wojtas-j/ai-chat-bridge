@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.wojtasj.aichatbridge.dto.MessageDTO;
+import io.github.resilience4j.ratelimiter.RateLimiter;
+import io.github.resilience4j.ratelimiter.RateLimiterConfig;
+import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
@@ -352,6 +355,23 @@ class GlobalExceptionHandlerTest {
     }
 
     /**
+     * Tests handling of {@link RequestNotPermitted} for rate limit exceeded errors.
+     * @since 1.0
+     */
+    @Test
+    void shouldHandleRateLimitExceeded() throws Exception {
+        mockMvc.perform(post("/test/rate-limit")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.type").value("/problems/rate-limit-exceeded"))
+                .andExpect(jsonPath("$.title").value("Rate Limit Exceeded"))
+                .andExpect(jsonPath("$.status").value(429))
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("Too many requests - rate limit exceeded for RateLimiter 'refreshToken' does not permit further calls")))
+                .andExpect(jsonPath("$.instance").value("/test/rate-limit"));
+    }
+
+
+    /**
      * Test controller to simulate various exceptions for testing {@link GlobalExceptionHandler}.
      * @since 1.0
      */
@@ -452,5 +472,18 @@ class GlobalExceptionHandlerTest {
         public void throwTInvalidApiKeyOpenAIException() {
             throw new OpenAIServiceException("Invalid OpenAI API key");
         }
+
+        @PostMapping("/test/rate-limit")
+        public void throwRateLimitExceeded() {
+            RateLimiter rateLimiter =
+                    RateLimiter.of("refreshToken",
+                            RateLimiterConfig.custom()
+                                    .limitForPeriod(1)
+                                    .limitRefreshPeriod(java.time.Duration.ofSeconds(1))
+                                    .timeoutDuration(java.time.Duration.ZERO)
+                                    .build());
+            throw RequestNotPermitted.createRequestNotPermitted(rateLimiter);
+        }
+
     }
 }

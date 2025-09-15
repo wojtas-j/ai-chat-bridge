@@ -21,6 +21,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Set;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -83,6 +84,7 @@ class SecurityConfigTest {
                 .roles(Set.of(Role.USER))
                 .apiKey(TEST_API_KEY)
                 .maxTokens(MAX_TOKENS)
+                .model(TEST_MODEL)
                 .build();
         userRepository.save(user);
 
@@ -93,12 +95,15 @@ class SecurityConfigTest {
                 .roles(Set.of(Role.ADMIN))
                 .apiKey(TEST_API_KEY)
                 .maxTokens(MAX_TOKENS)
+                .model(TEST_MODEL)
                 .build();
         userRepository.save(admin);
 
-        RefreshTokenEntity token = new RefreshTokenEntity();
-        token.setToken(TEST_REFRESH_TOKEN);
-        token.setUser(user);
+        RefreshTokenEntity token = RefreshTokenEntity.builder()
+                .token(TEST_REFRESH_TOKEN)
+                .user(user)
+                .expiryDate(LocalDateTime.now().plusDays(7))
+                .build();
         refreshTokenRepository.save(token);
     }
 
@@ -160,30 +165,12 @@ class SecurityConfigTest {
     }
 
     /**
-     * Tests that authenticated access to /api/auth/refresh is allowed with valid token.
+     * Tests that public access to /api/auth/refresh is allowed with valid refresh token.
      * @since 1.0
      */
     @Test
-    void shouldAllowAuthenticatedAccessToRefresh() throws Exception {
+    void shouldAllowPublicAccessToRefreshWithValidToken() throws Exception {
         // Arrange
-        String loginJson = """
-            {
-                "username": "%s",
-                "password": "%s"
-            }
-        """.formatted(TEST_USERNAME, TEST_PASSWORD);
-
-        String loginResponse = mockMvc.perform(post(AUTH_URL + "/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(loginJson))
-                .andExpect(status().isOk())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        TokenResponse tokenResponse = objectMapper.readValue(loginResponse, TokenResponse.class);
-        String accessToken = "Bearer " + tokenResponse.accessToken();
-
         String refreshJson = """
             {
                 "refreshToken": "%s"
@@ -192,18 +179,20 @@ class SecurityConfigTest {
 
         // Act & Assert
         mockMvc.perform(post(AUTH_URL + "/refresh")
-                        .header("Authorization", accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(refreshJson))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.expiresIn").isNumber());
     }
 
     /**
-     * Tests that unauthenticated access to /api/auth/refresh is blocked.
+     * Tests that access to /api/auth/refresh with invalid refresh token returns 401.
      * @since 1.0
      */
     @Test
-    void shouldBlockUnauthenticatedAccessToRefresh() throws Exception {
+    void shouldReturnUnauthorizedForInvalidRefreshToken() throws Exception {
         // Arrange
         String refreshJson = """
             {
@@ -410,11 +399,11 @@ class SecurityConfigTest {
     void shouldAllowAuthenticatedUserToLogout() throws Exception {
         // Arrange
         String loginJson = """
-        {
-            "username": "%s",
-            "password": "%s"
-        }
-    """.formatted(TEST_USERNAME, TEST_PASSWORD);
+            {
+                "username": "%s",
+                "password": "%s"
+            }
+        """.formatted(TEST_USERNAME, TEST_PASSWORD);
 
         String responseBody = mockMvc.perform(post(AUTH_URL + "/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -433,7 +422,7 @@ class SecurityConfigTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
 
-        assert(refreshTokenRepository.findByToken(TEST_REFRESH_TOKEN).isEmpty());
+        assert refreshTokenRepository.findByToken(TEST_REFRESH_TOKEN).isEmpty();
     }
 
     /**
@@ -456,11 +445,11 @@ class SecurityConfigTest {
     @Test
     void shouldAllowAdminAccessToAdminDiscordMessages() throws Exception {
         String loginJson = """
-        {
-            "username": "%s",
-            "password": "%s"
-        }
-    """.formatted(ADMIN_USERNAME, TEST_PASSWORD);
+            {
+                "username": "%s",
+                "password": "%s"
+            }
+        """.formatted(ADMIN_USERNAME, TEST_PASSWORD);
 
         String responseBody = mockMvc.perform(post(AUTH_URL + "/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -486,11 +475,11 @@ class SecurityConfigTest {
     @Test
     void shouldBlockNonAdminAccessToAdminDiscordMessages() throws Exception {
         String loginJson = """
-        {
-            "username": "%s",
-            "password": "%s"
-        }
-    """.formatted(TEST_USERNAME, TEST_PASSWORD);
+            {
+                "username": "%s",
+                "password": "%s"
+            }
+        """.formatted(TEST_USERNAME, TEST_PASSWORD);
 
         String responseBody = mockMvc.perform(post(AUTH_URL + "/login")
                         .contentType(MediaType.APPLICATION_JSON)

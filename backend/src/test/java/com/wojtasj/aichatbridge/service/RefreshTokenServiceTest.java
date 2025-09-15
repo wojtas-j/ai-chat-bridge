@@ -15,9 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -54,6 +52,9 @@ class RefreshTokenServiceTest {
                 .email("test@example.com")
                 .password("encodedPassword")
                 .roles(Set.of(Role.USER))
+                .apiKey("apiKey")
+                .maxTokens(100)
+                .model("model")
                 .build();
         now = LocalDateTime.now();
     }
@@ -202,5 +203,53 @@ class RefreshTokenServiceTest {
 
         // Assert
         verify(refreshTokenRepository).deleteByExpiryDateBefore(any(LocalDateTime.class));
+    }
+
+    /**
+     * Tests generating a refresh token when the maximum token limit is reached, ensuring the oldest token is deleted.
+     * @since 1.0
+     */
+    @Test
+    void shouldDeleteOldestTokenWhenMaxLimitReached() {
+        // Arrange
+        when(jwtProperties.getRefreshExpirationDays()).thenReturn(7L);
+
+        List<RefreshTokenEntity> existingTokens = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            RefreshTokenEntity token = RefreshTokenEntity.builder()
+                    .token(UUID.randomUUID().toString())
+                    .user(userEntity)
+                    .createdAt(now.minusDays(5 - i))
+                    .expiryDate(now.plusDays(7))
+                    .build();
+            existingTokens.add(token);
+        }
+        when(refreshTokenRepository.findByUser(userEntity)).thenReturn(existingTokens);
+
+        // Mock deletion of the oldest token
+        RefreshTokenEntity oldestToken = existingTokens.getFirst();
+        doNothing().when(refreshTokenRepository).delete(oldestToken);
+
+        // Mock saving the new token
+        String newTokenValue = UUID.randomUUID().toString();
+        RefreshTokenEntity newToken = RefreshTokenEntity.builder()
+                .token(newTokenValue)
+                .user(userEntity)
+                .expiryDate(now.plusDays(7))
+                .build();
+        when(refreshTokenRepository.save(any(RefreshTokenEntity.class))).thenReturn(newToken);
+
+        // Act
+        RefreshTokenEntity result = refreshTokenService.generateRefreshToken(userEntity);
+
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(result.getToken()).isEqualTo(newTokenValue);
+        assertThat(result.getUser()).isEqualTo(userEntity);
+        assertThat(result.getExpiryDate()).isEqualTo(now.plusDays(7));
+        verify(jwtProperties).getRefreshExpirationDays();
+        verify(refreshTokenRepository).findByUser(userEntity);
+        verify(refreshTokenRepository).delete(oldestToken);
+        verify(refreshTokenRepository).save(any(RefreshTokenEntity.class));
     }
 }

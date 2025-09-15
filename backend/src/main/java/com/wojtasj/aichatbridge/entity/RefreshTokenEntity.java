@@ -38,11 +38,4 @@ public class RefreshTokenEntity {
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
-
-    @PrePersist
-    public void setExpiryDate() {
-        if (expiryDate == null) {
-            expiryDate = LocalDateTime.now().plusDays(7);
-        }
-    }
 }

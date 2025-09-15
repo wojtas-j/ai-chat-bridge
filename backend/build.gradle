@@ -38,6 +38,7 @@ dependencies {
 	implementation 'org.springframework.retry:spring-retry:2.0.12'
 	implementation 'io.jsonwebtoken:jjwt-api:0.13.0'
 	implementation 'org.springframework.security:spring-security-crypto:7.0.0-M2'
+	implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.3.0'
 	implementation('org.json:json:20250517') {
 		exclude group: 'com.vaadin.external.google', module: 'android-json'
 	}
@@ -69,6 +70,7 @@ dependencies {
 	testImplementation 'net.bytebuddy:byte-buddy-agent:1.17.7'
 	testImplementation 'com.h2database:h2:2.3.232'
 	testImplementation 'org.springframework.security:spring-security-crypto:7.0.0-M2'
+	testImplementation 'io.github.resilience4j:resilience4j-ratelimiter:2.3.0'
 
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }

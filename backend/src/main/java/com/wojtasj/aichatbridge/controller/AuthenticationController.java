@@ -1,5 +1,6 @@
 package com.wojtasj.aichatbridge.controller;
 
+import com.wojtasj.aichatbridge.configuration.JwtProperties;
 import com.wojtasj.aichatbridge.dto.*;
 import com.wojtasj.aichatbridge.entity.RefreshTokenEntity;
 import com.wojtasj.aichatbridge.entity.UserEntity;
@@ -7,6 +8,7 @@ import com.wojtasj.aichatbridge.exception.AuthenticationException;
 import com.wojtasj.aichatbridge.service.AuthenticationService;
 import com.wojtasj.aichatbridge.service.JwtTokenProviderImpl;
 import com.wojtasj.aichatbridge.service.RefreshTokenService;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -39,12 +41,12 @@ import java.util.Map;
 public class AuthenticationController {
 
     private static final String INVALID_REFRESH_TOKEN_MESSAGE = "Invalid refresh token";
-    private static final String REFRESH_TOKEN_MISMATCH_MESSAGE = "Refresh token does not match authenticated user";
 
     private final AuthenticationService authenticationService;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProviderImpl jwtTokenProvider;
     private final RefreshTokenService refreshTokenService;
+    private final JwtProperties jwtProperties;
 
     /**
      * Retrieves information about the currently authenticated user.
@@ -115,47 +117,40 @@ public class AuthenticationController {
         String accessToken = jwtTokenProvider.generateToken(authentication);
         UserEntity user = authenticationService.findByUsername(request.username());
         RefreshTokenEntity refreshToken = refreshTokenService.generateRefreshToken(user);
+        long expiresIn = jwtProperties.getExpirationMs() / 1000;
         log.info("User authenticated successfully: {}", request.username());
-        return ResponseEntity.ok(new TokenResponse(accessToken, refreshToken.getToken()));
+        return ResponseEntity.ok(new TokenResponse(accessToken, refreshToken.getToken(), expiresIn));
     }
 
     /**
      * Refreshes an access token using a valid refresh token and rotates the refresh token.
      * @param request the refresh token request containing the refresh token
-     * @param userDetails the authenticated user's details
      * @return ResponseEntity with new access and refresh tokens
-     * @throws AuthenticationException if the refresh token is invalid, expired, or does not match the user
+     * @throws AuthenticationException if the refresh token is invalid or expired
      * @since 1.0
      */
-    @Operation(summary = "Refreshes an access token using a refresh token", security = @SecurityRequirement(name = "bearerAuth"))
+    @Operation(summary = "Refreshes an access token using a refresh token",
+            description = "Use this endpoint to refresh an expired access token. Returns new access and refresh tokens along with expiration time.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Access token refreshed successfully", content = @Content(schema = @Schema(implementation = TokenResponse.class))),
             @ApiResponse(responseCode = "400", description = "Invalid request data", content = @Content(schema = @Schema(implementation = Map.class))),
-            @ApiResponse(responseCode = "401", description = "Invalid or expired refresh token or unauthorized user", content = @Content(schema = @Schema(implementation = Map.class))),
-            @ApiResponse(responseCode = "403", description = "Forbidden - no permission to access", content = @Content(schema = @Schema(implementation = Map.class))),
+            @ApiResponse(responseCode = "401", description = "Invalid or expired refresh token", content = @Content(schema = @Schema(implementation = Map.class))),
+            @ApiResponse(responseCode = "429", description = "Too many requests - rate limit exceeded", content = @Content(schema = @Schema(implementation = Map.class))),
             @ApiResponse(responseCode = "500", description = "Server error", content = @Content(schema = @Schema(implementation = Map.class)))
     })
-    @PreAuthorize("isAuthenticated()")
+    @RateLimiter(name = "refreshToken")
     @PostMapping("/refresh")
-    public ResponseEntity<TokenResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request, @AuthenticationPrincipal UserDetails userDetails) {
-        log.info("Refreshing access token for user: {}", userDetails.getUsername());
+    public ResponseEntity<TokenResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
+        log.info("Refreshing access token");
         RefreshTokenEntity tokenEntity = refreshTokenService.validateRefreshToken(request.refreshToken());
-        if (tokenEntity == null) {
-            log.error("Invalid refresh token: {}", request.refreshToken());
-            throw new AuthenticationException(INVALID_REFRESH_TOKEN_MESSAGE);
-        }
         UserEntity user = tokenEntity.getUser();
-        if (user == null || !user.getUsername().equals(userDetails.getUsername())) {
-            log.error("Refresh token does not belong to authenticated user: {}", userDetails.getUsername());
-            throw new AuthenticationException(REFRESH_TOKEN_MISMATCH_MESSAGE);
-        }
         refreshTokenService.deleteByUser(user);
         RefreshTokenEntity newRefreshToken = refreshTokenService.generateRefreshToken(user);
-        Authentication authentication = new UsernamePasswordAuthenticationToken(
-                userDetails, null, userDetails.getAuthorities());
+        Authentication authentication = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
         String newAccessToken = jwtTokenProvider.generateToken(authentication);
+        long expiresIn = jwtProperties.getExpirationMs() / 1000;
         log.info("Access token and refresh token rotated successfully for user: {}", user.getUsername());
-        return ResponseEntity.ok(new TokenResponse(newAccessToken, newRefreshToken.getToken()));
+        return ResponseEntity.ok(new TokenResponse(newAccessToken, newRefreshToken.getToken(), expiresIn));
     }
 
     /**

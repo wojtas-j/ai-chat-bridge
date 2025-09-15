@@ -1,6 +1,7 @@
 package com.wojtasj.aichatbridge.exception;
 
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
+import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -228,6 +229,25 @@ public class GlobalExceptionHandler {
                 "Access Denied",
                 "You do not have permission to access this resource",
                 "/problems/access-denied",
+                request.getRequestURI()
+        );
+    }
+
+    /**
+     * Handles {@link RequestNotPermitted} for rate limit exceeded errors from Resilience4j.
+     * @param ex the rate limit exceeded exception
+     * @param request the HTTP request
+     * @return a ResponseEntity containing problem details with HTTP status 429
+     * @since 1.0
+     */
+    @ExceptionHandler(RequestNotPermitted.class)
+    public ResponseEntity<Map<String, Object>> handleRateLimitExceeded(RequestNotPermitted ex, HttpServletRequest request) {
+        log.error("Rate limit exceeded: {}", ex.getMessage(), ex);
+        return buildProblemDetailsResponse(
+                HttpStatus.TOO_MANY_REQUESTS,
+                "Rate Limit Exceeded",
+                "Too many requests - rate limit exceeded for " + ex.getMessage(),
+                "/problems/rate-limit-exceeded",
                 request.getRequestURI()
         );
     }

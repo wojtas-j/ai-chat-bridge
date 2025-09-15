@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -53,18 +54,23 @@ public class RefreshTokenRepositoryTest {
                 .roles(Set.of(Role.USER))
                 .apiKey("testapikey")
                 .maxTokens(100)
+                .model("testmodel")
                 .build();
         testUser = userRepository.save(testUser);
 
         token1 = RefreshTokenEntity.builder()
                 .token(TEST_TOKEN1)
                 .user(testUser)
+                .expiryDate(LocalDateTime.now().plusDays(7))
                 .build();
+        token1 = repository.save(token1);
 
         token2 = RefreshTokenEntity.builder()
                 .token(TEST_TOKEN2)
                 .user(testUser)
+                .expiryDate(LocalDateTime.now().plusDays(7))
                 .build();
+        token2 = repository.save(token2);
     }
 
     /**
@@ -74,7 +80,6 @@ public class RefreshTokenRepositoryTest {
     @Test
     void shouldSaveAndFindByToken() {
         // Act
-        repository.save(token1);
         Optional<RefreshTokenEntity> foundToken = repository.findByToken(TEST_TOKEN1);
 
         // Assert
@@ -97,15 +102,53 @@ public class RefreshTokenRepositoryTest {
     }
 
     /**
+     * Tests finding all refresh tokens for a user.
+     * @since 1.0
+     */
+    @Test
+    void shouldFindByUser() {
+        // Act
+        List<RefreshTokenEntity> userTokens = repository.findByUser(testUser);
+
+        // Assert
+        assertThat(userTokens).hasSize(2);
+        assertThat(userTokens).extracting(RefreshTokenEntity::getToken)
+                .containsExactlyInAnyOrder(TEST_TOKEN1, TEST_TOKEN2);
+        assertThat(userTokens).allMatch(token -> token.getUser().equals(testUser));
+    }
+
+    /**
+     * Tests finding refresh tokens for a user when no tokens exist.
+     * @since 1.0
+     */
+    @Test
+    void shouldReturnEmptyListWhenNoTokensForUser() {
+        // Arrange
+        UserEntity newUser = UserEntity.builder()
+                .username("nouser")
+                .email("nouser@example.com")
+                .password("password123")
+                .roles(Set.of(Role.USER))
+                .apiKey("testapikey")
+                .maxTokens(100)
+                .model("testmodel")
+                .build();
+        newUser = userRepository.save(newUser);
+
+        // Act
+        List<RefreshTokenEntity> userTokens = repository.findByUser(newUser);
+
+
+        // Assert
+        assertThat(userTokens).isEmpty();
+    }
+
+    /**
      * Tests deleting refresh tokens by user.
      * @since 1.0
      */
     @Test
     void shouldDeleteByUser() {
-        // Arrange
-        repository.save(token1);
-        repository.save(token2);
-
         // Act
         repository.deleteByUser(testUser);
 
@@ -125,7 +168,6 @@ public class RefreshTokenRepositoryTest {
 
         repository.save(token1);
         repository.save(token2);
-
 
         // Act
         repository.deleteByExpiryDateBefore(LocalDateTime.now());

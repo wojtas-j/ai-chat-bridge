@@ -1,6 +1,7 @@
 package com.wojtasj.aichatbridge.dto;
 
 import jakarta.validation.constraints.*;
+import lombok.Builder;
 
 /**
  * DTO for user registration requests in the AI Chat Bridge application.
@@ -32,5 +33,17 @@ public record RegisterRequest(
 
         @NotNull(message = "Max tokens cannot be null")
         @Min(value = 1, message = "Max tokens must be at least 1")
-        Integer maxTokens) {
+        Integer maxTokens,
+
+        @NotBlank(message = "Model cannot be blank")
+        String model) {
+
+        public RegisterRequest(
+                String username,
+                String email,
+                String password,
+                String apiKey,
+                Integer maxTokens) {
+                this(username, email, password, apiKey, maxTokens, "gpt-4o-mini");
+        }
 }

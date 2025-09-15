@@ -26,6 +26,8 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Service for interacting with the OpenAI API in the AI Chat Bridge application.
@@ -51,7 +53,7 @@ public class OpenAIServiceImpl implements OpenAIService {
      */
     @PostConstruct
     public void validateConfiguration() {
-        if (isEmpty(openAIProperties.getModel())) {
+        if (isEmpty(discordProperties.getOpenAiModel())) {
             throw new IllegalStateException("OpenAI model cannot be null or empty");
         }
         if (isEmpty(openAIProperties.getBaseUrl()) || isEmpty(openAIProperties.getChatCompletionsEndpoint())) {
@@ -75,9 +77,9 @@ public class OpenAIServiceImpl implements OpenAIService {
     public <T extends BaseMessage> T sendMessageToOpenAI(T message, boolean isDiscordMessage, UserEntity user) throws OpenAIServiceException {
         validateMessage(message);
         ApiConfig config = resolveApiConfig(isDiscordMessage, user);
-        log.info("Sending {} message to OpenAI, content: {}", isDiscordMessage ? "Discord" : "User", message.getContent());
+        log.info("Sending {} message to OpenAI, content: {}, model: {}", isDiscordMessage ? "Discord" : "User", message.getContent(), config.model());
 
-        HttpEntity<String> request = buildRequest(config.apiKey(), config.maxTokens(), message.getContent());
+        HttpEntity<String> request = buildRequest(config.apiKey(), config.maxTokens(), config.model(), message.getContent());
         ResponseEntity<String> response = executeRequest(request);
 
         String responseText = parseResponse(response.getBody());
@@ -85,13 +87,15 @@ public class OpenAIServiceImpl implements OpenAIService {
     }
 
     /**
-     * Validates the provided OpenAI API key.
+     * Validates the provided OpenAI API key and model.
      * @param apiKey the API key to validate
-     * @throws OpenAIServiceException if the API key is invalid
+     * @param model the model to validate
+     * @throws OpenAIServiceException if the API key or model is invalid
      */
     @Override
-    public void validateApiKey(String apiKey) {
+    public void validateApiKeyAndModel(String apiKey, String model) {
         validateNotEmpty(apiKey, "API key cannot be null or empty during validation");
+        validateNotEmpty(model, "Model cannot be null or empty during validation");
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", BEARER_PREFIX + apiKey);
@@ -104,18 +108,42 @@ public class OpenAIServiceImpl implements OpenAIService {
                     entity,
                     String.class
             );
-            if (response.getStatusCode().is2xxSuccessful()) {
-                log.info("API key validation successful");
-            } else {
-                log.error("API key validation failed with status: {}", response.getStatusCode());
-                throw new OpenAIServiceException("Invalid OpenAI API key: " + response.getStatusCode());
+
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new OpenAIServiceException("Invalid OpenAI API key: " + response.getStatusCode().value());
             }
+
+            log.info("API key validated successfully");
+
+            ObjectNode json = (ObjectNode) objectMapper.readTree(response.getBody());
+            if (!json.has("data") || !json.get("data").isArray()) {
+                throw new OpenAIServiceException("Invalid response structure from OpenAI models endpoint");
+            }
+
+            ArrayNode models = (ArrayNode) json.get("data");
+            Set<String> availableModels = new HashSet<>();
+            for (var node : models) {
+                if (node.has("id") && node.get("id").isTextual()) {
+                    availableModels.add(node.get("id").asText());
+                }
+            }
+
+            if (!availableModels.contains(model)) {
+                log.error("Invalid OpenAI model: {}. Available models: {}", model, availableModels);
+                throw new OpenAIServiceException("Invalid OpenAI model: " + model + ". Available models: " + availableModels);
+            }
+
+            log.info("Model '{}' validation successful", model);
+
         } catch (HttpClientErrorException e) {
-            log.error("API key validation failed with status: {}", e.getStatusCode(), e);
-            throw new OpenAIServiceException("Invalid OpenAI API key: " + e.getStatusCode(), e);
+            if (e.getStatusCode().value() == 429) {
+                throw new OpenAIServiceException("Too many requests to OpenAI API", e);
+            }
+            throw new OpenAIServiceException("Invalid OpenAI API key: " + e.getStatusCode().value(), e);
+        } catch (HttpServerErrorException e) {
+            throw new OpenAIServiceException("OpenAI API server error: " + e.getStatusCode().value(), e);
         } catch (Exception e) {
-            log.error("Unexpected error during API key validation: {}", e.getMessage(), e);
-            throw new OpenAIServiceException("Failed to validate API key", e);
+            throw new OpenAIServiceException(e.getMessage(), e);
         }
     }
 
@@ -129,7 +157,7 @@ public class OpenAIServiceImpl implements OpenAIService {
     private ApiConfig resolveApiConfig(boolean isDiscordMessage, UserEntity user) {
         if (isDiscordMessage) {
             try {
-                return new ApiConfig(discordProperties.getApiKey(), Integer.parseInt(discordProperties.getMaxTokens()));
+                return new ApiConfig(discordProperties.getApiKey(), Integer.parseInt(discordProperties.getMaxTokens()), discordProperties.getOpenAiModel());
             } catch (NumberFormatException e) {
                 log.error("Invalid max-tokens value in Discord properties: {}", discordProperties.getMaxTokens(), e);
                 throw new OpenAIServiceException("Invalid max-tokens configuration for Discord");
@@ -144,14 +172,15 @@ public class OpenAIServiceImpl implements OpenAIService {
                 log.error("Max tokens is null or non-positive for non-Discord message: {}", user.getMaxTokens());
                 throw new OpenAIServiceException("Max tokens must be positive for non-Discord messages");
             }
-            validateApiKey(user.getApiKey());
-            return new ApiConfig(user.getApiKey(), user.getMaxTokens());
+            validateNotEmpty(user.getModel(), "Model required for non-Discord messages");
+            validateApiKeyAndModel(user.getApiKey(), user.getModel());
+            return new ApiConfig(user.getApiKey(), user.getMaxTokens(), user.getModel());
         }
     }
 
-    private HttpEntity<String> buildRequest(String apiKey, int maxTokens, String content) {
+    private HttpEntity<String> buildRequest(String apiKey, int maxTokens, String model, String content) {
         ObjectNode requestBody = objectMapper.createObjectNode();
-        requestBody.put("model", openAIProperties.getModel());
+        requestBody.put("model", model);
         requestBody.put("max_tokens", maxTokens);
 
         ArrayNode messages = objectMapper.createArrayNode();
@@ -253,8 +282,8 @@ public class OpenAIServiceImpl implements OpenAIService {
     }
 
     /**
-     * Internal record to hold API key and max tokens' configuration.
+     * Internal record to hold API key, max tokens, and model configuration.
      */
-    private record ApiConfig(String apiKey, int maxTokens) {
+    private record ApiConfig(String apiKey, int maxTokens, String model) {
     }
 }

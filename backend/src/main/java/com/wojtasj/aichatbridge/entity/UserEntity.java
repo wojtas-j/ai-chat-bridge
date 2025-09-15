@@ -63,6 +63,11 @@ public class UserEntity implements UserDetails {
     @Column(name = "max_tokens", nullable = false)
     private Integer maxTokens;
 
+    @NotBlank(message = "Model cannot be blank")
+    @Column(nullable = false)
+    @Builder.Default
+    private String model = "gpt-4o-mini";
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<MessageEntity> messages = new java.util.ArrayList<>();
 

@@ -35,7 +35,7 @@ public abstract class BaseMessage {
 
     /** Creation timestamp. */
     @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
     /** Logs creation of a new message. */

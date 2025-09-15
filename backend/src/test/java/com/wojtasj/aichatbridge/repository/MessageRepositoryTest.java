@@ -4,6 +4,7 @@ import com.wojtasj.aichatbridge.configuration.TestBeansConfig;
 import com.wojtasj.aichatbridge.entity.MessageEntity;
 import com.wojtasj.aichatbridge.entity.Role;
 import com.wojtasj.aichatbridge.entity.UserEntity;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -30,11 +31,37 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Import(TestBeansConfig.class)
 class MessageRepositoryTest {
 
+    private static final String TEST_USER = "testuser";
+    private static final String TEST_EMAIL = "test@example.com";
+    private static final String TEST_PASSWORD = "Password123!";
+    private static final String TEST_API_KEY = "test-api-key";
+    private static final int MAX_TOKENS = 100;
+
     @Autowired
     private MessageRepository repository;
 
     @Autowired
     private UserRepository userRepository;
+
+    private UserEntity user;
+
+    /**
+     * Sets up the test environment by creating a sample DiscordMessageEntity.
+     * @since 1.0
+     */
+    @BeforeEach
+    void setUp() {
+        user = UserEntity.builder()
+                .username(TEST_USER)
+                .email(TEST_EMAIL)
+                .password(TEST_PASSWORD)
+                .apiKey(TEST_API_KEY)
+                .maxTokens(MAX_TOKENS)
+                .roles(Set.of(Role.USER))
+                .build();
+
+        userRepository.save(user);
+    }
 
     /**
      * Tests saving a message to the database and retrieving it.
@@ -43,16 +70,6 @@ class MessageRepositoryTest {
     @Test
     void shouldSaveAndFindMessage() {
         // Arrange
-        UserEntity user = UserEntity.builder()
-                .username("testuser")
-                .email("test@example.com")
-                .password("Password123!")
-                .apiKey("test-api-key")
-                .maxTokens(100)
-                .roles(Set.of(Role.USER))
-                .build();
-        user = userRepository.save(user);
-
         MessageEntity message = MessageEntity.builder()
                 .content("Test message")
                 .user(user)
@@ -84,30 +101,20 @@ class MessageRepositoryTest {
     @Transactional
     void shouldFindMessagesByUserIdWithPagination() {
         // Arrange
-        UserEntity user = UserEntity.builder()
-                .username("testuser")
-                .email("test@example.com")
-                .password("Password123!")
-                .apiKey("test-api-key")
-                .maxTokens(100)
-                .roles(Set.of(Role.USER))
-                .build();
-        user = userRepository.save(user);
-
         MessageEntity message1 = MessageEntity.builder()
                 .content("First message")
                 .user(user)
                 .build();
         repository.save(message1);
-        message1.setCreatedAt(LocalDateTime.now());
+        message1.setCreatedAt(LocalDateTime.now().minusDays(1));
 
         MessageEntity message2 = MessageEntity.builder()
                 .content("Second message")
                 .user(user)
                 .build();
         repository.save(message2);
-        message1.setCreatedAt(LocalDateTime.now().minusDays(1));
-        
+        message2.setCreatedAt(LocalDateTime.now());
+
         Pageable pageable = PageRequest.of(0, 1, Sort.by("createdAt").descending());
 
         // Act
@@ -130,16 +137,6 @@ class MessageRepositoryTest {
     @Test
     void shouldReturnEmptyPageWhenNoMessagesForUser() {
         // Arrange
-        UserEntity user = UserEntity.builder()
-                .username("testuser")
-                .email("test@example.com")
-                .password("Password123!")
-                .apiKey("test-api-key")
-                .maxTokens(100)
-                .roles(Set.of(Role.USER))
-                .build();
-        user = userRepository.save(user);
-
         Pageable pageable = PageRequest.of(0, 20, Sort.by("createdAt").descending());
 
         // Act

@@ -40,6 +40,10 @@ public class RefreshTokenRepositoryTest {
     private RefreshTokenEntity token1;
     private RefreshTokenEntity token2;
 
+    /**
+     * Sets up the test environment by creating a sample UserEntity and RefreshTokensEntity.
+     * @since 1.0
+     */
     @BeforeEach
     void setUp() {
         testUser = UserEntity.builder()

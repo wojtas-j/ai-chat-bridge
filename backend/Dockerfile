@@ -6,6 +6,9 @@ COPY gradlew gradlew.bat settings.gradle build.gradle ./
 COPY gradle ./gradle
 COPY src ./src
 
+# Add execute permissions to gradlew
+RUN chmod +x ./gradlew
+
 RUN ./gradlew clean build -x test --no-daemon
 
 # Run

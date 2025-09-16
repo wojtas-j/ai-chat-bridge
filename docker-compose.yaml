@@ -1,28 +1,94 @@
 services:
-  db:                                    # Service called "db" for database
-    image: postgres:17.6-alpine          # Postgres version
-    container_name: postgres_db          # Name of the running container
-    restart: unless-stopped              # Automatically restart unless manually stopped
+  db:                                    # Database service
+    image: postgres:17.6-alpine          # Postgres image
+    container_name: postgres_db          # Container name
+    restart: unless-stopped              # Restart unless manually stopped
     env_file:
-      - .env.dev                         # Load environment variables (user, password, db name) from .env.dev file
+      - .env.dev                         # Load env variables from .env.dev
     ports:
-      - "5432:5432"                      # Map host port 5432 to container port 5432 (Postgres default)
+      - "5432:5432"                      # Map host port to container port
     volumes:
-      - db_data:/var/lib/postgresql/data # Persist database data in a named Docker volume
-    healthcheck:                         # Health check ensures Postgres is ready before other services connect
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"] # Check if DB accepts connections
-      interval: 10s                      # Run healthcheck every 10 seconds
-      timeout: 5s                        # Fail if no response within 5 seconds
-      retries: 5                         # Retry up to 5 times before marking as unhealthy
-      start_period: 10s                  # Give container 10s to properly start before running checks
+      - db_data:/var/lib/postgresql/data # Persist database data
+    healthcheck:                         # Check database readiness
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"] # Verify DB connection
+      interval: 10s                      # Check every 10 seconds
+      timeout: 5s                        # Timeout after 5 seconds
+      retries: 5                         # Retry 5 times
+      start_period: 10s                  # Wait 10s before checks
     deploy:
-      resources:                         # Limit and reserve container resources
+      resources:                         # Limit container resources
         limits:
-          cpus: "0.50"                   # Max CPU limit in %
-          memory: 1024M                  # Max RAM memory limit in M
+          cpus: "0.50"                   # Max 50% CPU
+          memory: 1024M                  # Max 1GB RAM
         reservations:
-          cpus: "0.25"                   # Reserve at least 25% CPU
-          memory: 256M                   # Reserve at least 256MB RAM
+          cpus: "0.25"                   # Reserve 25% CPU
+          memory: 256M                   # Reserve 256MB RAM
+    networks:
+      - app-network                     # Use custom network
+
+  backend:                              # Backend service
+    build:
+      context: ./backend                 # Build from backend directory
+      dockerfile: Dockerfile             # Use backend Dockerfile
+    container_name: aichatbridge-backend # Container name
+    restart: unless-stopped              # Restart unless manually stopped
+    env_file:
+      - .env.dev                         # Load env variables from .env.dev
+    ports:
+      - "8080:8080"                      # Map host port to container port
+    depends_on:
+      db:
+        condition: service_healthy       # Wait for database to be healthy
+    healthcheck:                         # Check backend readiness
+        test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"] # Verify health endpoint
+        interval: 30s                      # Check every 30 seconds
+        timeout: 5s                        # Timeout after 5 seconds
+        retries: 3                         # Retry 3 times
+        start_period: 30s                  # Wait 30s before checks
+    deploy:
+      resources:                         # Limit container resources
+        limits:
+          cpus: "1.0"                    # Max 1 CPU
+          memory: 2048M                  # Max 2GB RAM
+        reservations:
+          cpus: "0.5"                    # Reserve 50% CPU
+          memory: 512M                   # Reserve 512MB RAM
+    networks:
+      - app-network                     # Use custom network
+    environment:
+        POSTGRES_DB_HOST: db  
+
+  frontend:                             # Frontend service
+    build:
+      context: ./frontend                # Build from frontend directory
+      dockerfile: Dockerfile             # Use frontend Dockerfile
+    container_name: aichatbridge-frontend # Container name
+    restart: unless-stopped              # Restart unless manually stopped
+    ports:
+      - "3000:80"                        # Map host port 3000 to nginx port 80
+    depends_on:
+      backend:
+        condition: service_healthy       # Wait for backend to be healthy
+    healthcheck:                         # Check frontend readiness
+      test: ["CMD", "curl", "-f", "http://localhost"] # Verify nginx response
+      interval: 30s                      # Check every 30 seconds
+      timeout: 5s                        # Timeout after 5 seconds
+      retries: 3                         # Retry 3 times
+      start_period: 5s                   # Wait 5s before checks
+    deploy:
+      resources:                         # Limit container resources
+        limits:
+          cpus: "0.5"                    # Max 50% CPU
+          memory: 512M                   # Max 512MB RAM
+        reservations:
+          cpus: "0.25"                   # Reserve 25% CPU
+          memory: 256M                   # Reserve 256MB RAM
+    networks:
+      - app-network                     # Use custom network
+
+networks:
+  app-network:                         # Custom network for services
+    driver: bridge                     # Bridge network driver
 
 volumes:
-  db_data:                               # Named volume to persist PostgreSQL data even if the container is removed
+  db_data:                             # Named volume for database data

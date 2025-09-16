@@ -1,5 +1,6 @@
 # Project custom files
 .env.dev
+.env.prod
 logs/
 node_modules/
 

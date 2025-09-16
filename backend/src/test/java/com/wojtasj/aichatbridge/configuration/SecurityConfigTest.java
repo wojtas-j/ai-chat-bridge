@@ -625,15 +625,13 @@ class SecurityConfigTest {
         TokenResponse tokenResponse = objectMapper.readValue(responseBody, TokenResponse.class);
         String accessToken = "Bearer " + tokenResponse.accessToken();
 
+        Long testUserId = userRepository.findByUsername(TEST_USERNAME)
+                .orElseThrow().getId();
+
         // Act & Assert
-        mockMvc.perform(delete(ADMIN_URL)
+        mockMvc.perform(delete(ADMIN_URL + "/refresh-tokens/{id}", testUserId)
                         .header("Authorization", accessToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                            {
-                                "username": "%s"
-                            }
-                        """.formatted(TEST_USERNAME)))
+                        .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNoContent());
     }
 
@@ -662,15 +660,13 @@ class SecurityConfigTest {
         TokenResponse tokenResponse = objectMapper.readValue(responseBody, TokenResponse.class);
         String accessToken = "Bearer " + tokenResponse.accessToken();
 
+        Long testUserId = userRepository.findByUsername(TEST_USERNAME)
+                .orElseThrow().getId();
+
         // Act & Assert
-        mockMvc.perform(delete(ADMIN_URL)
+        mockMvc.perform(delete(ADMIN_URL + "/users/{id}", testUserId)
                         .header("Authorization", accessToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                            {
-                                "username": "%s"
-                            }
-                        """.formatted(TEST_USERNAME)))
+                        .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.type").value("/problems/access-denied"))
                 .andExpect(jsonPath("$.status").value(403));

@@ -231,7 +231,7 @@ class UserServiceTest {
         @Test
         void shouldUpdateApiKeySuccessfully() {
             // Arrange
-            String newApiKey = "sk-newxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+            String newApiKey = "sk-new";
             when(userRepository.findByUsername(TEST_USERNAME)).thenReturn(Optional.of(userEntity));
             when(userRepository.save(any(UserEntity.class))).thenReturn(userEntity);
 

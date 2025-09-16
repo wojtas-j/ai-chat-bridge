@@ -215,6 +215,25 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles {@link UserNotFoundException} for cases where a user is not found.
+     * @param ex the user not found exception
+     * @param request the HTTP request
+     * @return a ResponseEntity containing problem details with HTTP status 404
+     * @since 1.0
+     */
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleUserNotFoundException(UserNotFoundException ex, HttpServletRequest request) {
+        log.error("User not found: {}", ex.getMessage(), ex);
+        return buildProblemDetailsResponse(
+                HttpStatus.NOT_FOUND,
+                "User Not Found",
+                ex.getMessage(),
+                "/problems/user-not-found",
+                request.getRequestURI()
+        );
+    }
+
+    /**
      * Handles {@link org.springframework.security.access.AccessDeniedException} for unauthorized access attempts.
      * @param ex the Spring Security access denied exception
      * @param request the HTTP request

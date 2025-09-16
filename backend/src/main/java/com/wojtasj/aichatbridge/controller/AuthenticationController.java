@@ -40,8 +40,6 @@ import java.util.Map;
 @Slf4j
 public class AuthenticationController {
 
-    private static final String INVALID_REFRESH_TOKEN_MESSAGE = "Invalid refresh token";
-
     private final AuthenticationService authenticationService;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProviderImpl jwtTokenProvider;
@@ -68,7 +66,7 @@ public class AuthenticationController {
         log.info("Retrieving info for authenticated user: {}", userDetails.getUsername());
         UserEntity user = authenticationService.findByUsername(userDetails.getUsername());
         log.info("Successfully retrieved info for user: {}", user.getUsername());
-        return ResponseEntity.ok(new UserDTO(user.getUsername(), user.getEmail(), user.getRoles(), user.getMaxTokens()));
+        return ResponseEntity.ok(new UserDTO(user.getUsername(), user.getEmail(), user.getRoles(), user.getMaxTokens(), user.getModel(), user.getCreatedAt()));
     }
 
     /**
@@ -92,7 +90,7 @@ public class AuthenticationController {
         UserEntity user = authenticationService.register(request);
         log.info("User registered successfully: {}", user.getUsername());
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new UserDTO(user.getUsername(), user.getEmail(), user.getRoles(), user.getMaxTokens()));
+                .body(new UserDTO(user.getUsername(), user.getEmail(), user.getRoles(), user.getMaxTokens(), user.getModel(), user.getCreatedAt()));
     }
 
     /**

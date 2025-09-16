@@ -1,6 +1,7 @@
-# Custom project files
+# Project custom files
 .env.dev
 logs/
+node_modules/
 
 # Backend (Java, Spring, Gradle, Docker, InteliJ) & Frontend
 

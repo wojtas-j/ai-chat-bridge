@@ -1,0 +1,35 @@
+name: CI
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build and run containers
+        run: docker compose -f docker-compose-prod.yaml up --build -d
+        env:
+          SPRING_PROFILES_ACTIVE: prod
+          POSTGRES_DB_HOST: ${{ secrets.POSTGRES_DB_HOST }}
+          POSTGRES_DB_PORT: ${{ secrets.POSTGRES_DB_PORT }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          OPENAI_API_KEY_FOR_DISCORD: ${{ secrets.OPENAI_API_KEY_FOR_DISCORD }}
+          OPEN_AI_MODEL_FOR_DISCORD: gpt-4o-mini
+          MAX_TOKENS_OPEN_AI_FOR_DISCORD: 500
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_EXPIRATION_MS: 1800000
+          JWT_REFRESH_EXPIRATION_DAYS: 7
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          SALT: ${{ secrets.SALT }}
+      - name: Run backend tests
+        run: docker exec aichatbridge-backend ./gradlew test
+      - name: Stop containers
+        run: docker compose -f docker-compose-prod.yaml down

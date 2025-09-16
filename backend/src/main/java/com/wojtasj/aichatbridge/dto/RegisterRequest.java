@@ -1,7 +1,6 @@
 package com.wojtasj.aichatbridge.dto;
 
 import jakarta.validation.constraints.*;
-import lombok.Builder;
 
 /**
  * DTO for user registration requests in the AI Chat Bridge application.
@@ -33,6 +32,7 @@ public record RegisterRequest(
 
         @NotNull(message = "Max tokens cannot be null")
         @Min(value = 1, message = "Max tokens must be at least 1")
+        @Max(value = 999999, message = "Max tokens cannot exceed 999999")
         Integer maxTokens,
 
         @NotBlank(message = "Model cannot be blank")

@@ -12,6 +12,7 @@ import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.Validation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,8 +31,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.access.AccessDeniedException;
-
-import jakarta.validation.Validation;
 
 import java.util.Locale;
 import java.util.Set;
@@ -137,7 +136,6 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.detail").value("Too many requests to OpenAI API"))
                 .andExpect(jsonPath("$.instance").value("/test/openai-too-many-requests"));
     }
-
 
     /**
      * Tests handling of {@link DiscordServiceException}.
@@ -339,6 +337,23 @@ class GlobalExceptionHandlerTest {
     }
 
     /**
+     * Tests handling of {@link UserNotFoundException}.
+     * @since 1.0
+     */
+    @Test
+    void shouldHandleUserNotFoundException() throws Exception {
+        // Act & Assert
+        mockMvc.perform(post("/test/user-not-found")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.type").value("/problems/user-not-found"))
+                .andExpect(jsonPath("$.title").value("User Not Found"))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("User not found with ID: 999"))
+                .andExpect(jsonPath("$.instance").value("/test/user-not-found"));
+    }
+
+    /**
      * Tests handling of generic {@link Exception}.
      * @since 1.0
      */
@@ -369,7 +384,6 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("Too many requests - rate limit exceeded for RateLimiter 'refreshToken' does not permit further calls")))
                 .andExpect(jsonPath("$.instance").value("/test/rate-limit"));
     }
-
 
     /**
      * Test controller to simulate various exceptions for testing {@link GlobalExceptionHandler}.
@@ -438,6 +452,11 @@ class GlobalExceptionHandlerTest {
             throw new UserAlreadyExistsException("Username already taken");
         }
 
+        @PostMapping("/test/user-not-found")
+        public void throwUserNotFoundException() {
+            throw new UserNotFoundException("User not found with ID: 999");
+        }
+
         @PostMapping("/test/access-denied")
         public void throwAccessDeniedException() {
             throw new AccessDeniedException("You do not have permission to access this resource");
@@ -484,6 +503,5 @@ class GlobalExceptionHandlerTest {
                                     .build());
             throw RequestNotPermitted.createRequestNotPermitted(rateLimiter);
         }
-
     }
 }

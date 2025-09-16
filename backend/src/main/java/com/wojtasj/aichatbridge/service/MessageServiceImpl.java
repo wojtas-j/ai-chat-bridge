@@ -4,8 +4,8 @@ import com.wojtasj.aichatbridge.entity.MessageEntity;
 import com.wojtasj.aichatbridge.entity.Role;
 import com.wojtasj.aichatbridge.entity.UserEntity;
 import com.wojtasj.aichatbridge.exception.AccessDeniedException;
-import com.wojtasj.aichatbridge.exception.AuthenticationException;
 import com.wojtasj.aichatbridge.exception.MessageNotFoundException;
+import com.wojtasj.aichatbridge.exception.UserNotFoundException;
 import com.wojtasj.aichatbridge.repository.MessageRepository;
 import com.wojtasj.aichatbridge.repository.UserRepository;
 import lombok.AllArgsConstructor;
@@ -36,14 +36,14 @@ public class MessageServiceImpl implements MessageService {
      * @param userId   the ID of the user whose messages are to be retrieved
      * @param pageable pagination information (page number, size)
      * @return a {@link Page} of {@link MessageEntity} objects for the specified user
-     * @throws AuthenticationException if the user with the specified ID is not found
+     * @throws UserNotFoundException if the user with the specified ID is not found
      * @since 1.0
      */
     @Override
     public Page<MessageEntity> getMessagesForUser(Long userId, Pageable pageable) {
         log.info("Fetching messages for user ID: {}", userId);
         userRepository.findById(userId)
-                .orElseThrow(() -> new AuthenticationException("User not found with ID: " + userId));
+                .orElseThrow(() -> new UserNotFoundException("User not found with ID: " + userId));
         Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("createdAt").descending());
         Page<MessageEntity> messages = messageRepository.findByUserId(userId, sortedPageable);
         log.info("Retrieved {} messages for user ID: {}", messages.getTotalElements(), userId);
@@ -71,14 +71,14 @@ public class MessageServiceImpl implements MessageService {
      * @param content the content of the message
      * @param userId  the ID of the user creating the message
      * @return the saved {@link MessageEntity}
-     * @throws AuthenticationException if the user with the specified ID is not found
+     * @throws UserNotFoundException if the user with the specified ID is not found
      * @since 1.0
      */
     @Override
     public MessageEntity createMessage(String content, Long userId) {
         log.info("Creating message for user ID: {} with content length: {}", userId, content.length());
         UserEntity user = userRepository.findById(userId)
-                .orElseThrow(() -> new AuthenticationException("User not found with ID: " + userId));
+                .orElseThrow(() -> new UserNotFoundException("User not found with ID: " + userId));
         MessageEntity message = MessageEntity.builder()
                 .content(content)
                 .user(user)
@@ -92,7 +92,7 @@ public class MessageServiceImpl implements MessageService {
      * Deletes a specific message if the requesting user is the owner or an admin.
      * @param messageId     the ID of the message to delete
      * @param currentUserId the ID of the user requesting the deletion
-     * @throws AuthenticationException if the user is not found
+     * @throws UserNotFoundException if the user is not found
      * @throws MessageNotFoundException if the message do not exist
      * @throws AccessDeniedException if the requesting user is neither the message owner nor an admin
      * @since 1.0
@@ -101,7 +101,7 @@ public class MessageServiceImpl implements MessageService {
     public void deleteMessage(Long messageId, Long currentUserId) {
         log.info("Attempting to delete message ID: {} by user ID: {}", messageId, currentUserId);
         UserEntity currentUser = userRepository.findById(currentUserId)
-                .orElseThrow(() -> new AuthenticationException("Current user not found with ID: " + currentUserId));
+                .orElseThrow(() -> new UserNotFoundException("Current user not found with ID: " + currentUserId));
         MessageEntity message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new MessageNotFoundException("Message not found with ID: " + messageId));
 

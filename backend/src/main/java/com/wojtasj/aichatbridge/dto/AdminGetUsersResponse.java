@@ -7,6 +7,7 @@ import java.util.Set;
 
 /**
  * DTO for representing user details in the AI Chat Bridge application.
+ * @param id the user's id
  * @param username the user's username
  * @param email the user's email
  * @param roles the set of roles assigned to the user
@@ -15,5 +16,5 @@ import java.util.Set;
  * @param createdAt the user's account created at time
  * @since 1.0
  */
-public record UserDTO(String username, String email, Set<Role> roles, Integer maxTokens, String model, LocalDateTime createdAt) {
+public record AdminGetUsersResponse(Long id, String username, String email, Integer maxTokens, String model, LocalDateTime createdAt, Set<Role> roles) {
 }

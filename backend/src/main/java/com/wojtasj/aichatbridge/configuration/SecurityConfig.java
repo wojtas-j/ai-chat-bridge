@@ -39,7 +39,8 @@ public class SecurityConfig {
      *     <li>Public access to <code>/api/auth/login</code> and <code>/api/auth/register</code> for authentication and registration.</li>
      *     <li>Public access to <code>/api/auth/refresh</code> for token refresh.</li>
      *     <li>Admin-only access to <code>/api/messages/admin</code>.</li>
-     *     <li>Authenticated access to <code>/api/messages/**</code> and <code>/api/openai/**</code>.</li>
+     *     <li>Admin-only access to <code>/api/admin/**</code>.</li>
+     *     <li>Authenticated access to <code>/api/messages/**</code>, <code>/api/openai/**</code> and <code>/api/users/**</code></li>
      *     <li>Public access to <code>/actuator/health</code>.</li>
      *     <li>Admin-only access to <code>/actuator/**</code>.</li>
      * </ul>
@@ -69,6 +70,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
                         .requestMatchers("/api/auth/refresh").permitAll()
                         .requestMatchers("/api/auth/logout").authenticated()
+                        .requestMatchers("/api/users/**").authenticated()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/messages/admin").hasRole("ADMIN")
                         .requestMatchers("/api/messages/**").authenticated()
                         .requestMatchers("/api/discord-messages/admin").hasRole("ADMIN")

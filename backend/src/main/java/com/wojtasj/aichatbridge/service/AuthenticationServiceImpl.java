@@ -4,12 +4,12 @@ import com.wojtasj.aichatbridge.dto.RegisterRequest;
 import com.wojtasj.aichatbridge.entity.Role;
 import com.wojtasj.aichatbridge.entity.UserEntity;
 import com.wojtasj.aichatbridge.exception.AuthenticationException;
+import com.wojtasj.aichatbridge.exception.UserNotFoundException;
 import com.wojtasj.aichatbridge.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,7 +66,7 @@ public class AuthenticationServiceImpl implements AuthenticationService, UserDet
      * Finds a user by their username.
      * @param username the username of the user to find
      * @return the UserEntity corresponding to the given username
-     * @throws AuthenticationException if the user is not found
+     * @throws UserNotFoundException if the user is not found
      * @since 1.0
      */
     @Override
@@ -75,7 +75,7 @@ public class AuthenticationServiceImpl implements AuthenticationService, UserDet
         UserEntity user = userRepository.findByUsername(username)
                 .orElseThrow(() -> {
                     log.error("User not found: {}", username);
-                    return new AuthenticationException("User not found: " + username);
+                    return new UserNotFoundException("User not found: " + username);
                 });
         log.info("User found: {}", username);
         return user;
@@ -85,16 +85,16 @@ public class AuthenticationServiceImpl implements AuthenticationService, UserDet
      * Loads user details by username or email for authentication.
      * @param username the username or email identifying the user
      * @return the UserDetails object for the user
-     * @throws UsernameNotFoundException if the user is not found
+     * @throws UserNotFoundException if the user is not found
      * @since 1.0
      */
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+    public UserDetails loadUserByUsername(String username) throws UserNotFoundException {
         log.info("Loading user details for username or email: {}", username);
         UserDetails user = userRepository.findByUsernameOrEmail(username, username)
                 .orElseThrow(() -> {
                     log.error("User not found with username or email: {}", username);
-                    return new UsernameNotFoundException("User not found with username or email: " + username);
+                    return new UserNotFoundException("User not found with username or email: " + username);
                 });
         log.info("User details loaded for: {}", username);
         return user;

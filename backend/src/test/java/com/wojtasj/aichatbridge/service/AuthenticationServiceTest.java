@@ -4,6 +4,7 @@ import com.wojtasj.aichatbridge.dto.RegisterRequest;
 import com.wojtasj.aichatbridge.entity.Role;
 import com.wojtasj.aichatbridge.entity.UserEntity;
 import com.wojtasj.aichatbridge.exception.AuthenticationException;
+import com.wojtasj.aichatbridge.exception.UserNotFoundException;
 import com.wojtasj.aichatbridge.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,7 +13,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -219,16 +219,16 @@ class AuthenticationServiceTest {
     }
 
     /**
-     * Tests throwing UsernameNotFoundException when user is not found by username or email.
+     * Tests throwing UserNotFoundException when user is not found by username or email.
      * @since 1.0
      */
     @Test
-    void shouldThrowUsernameNotFoundExceptionForNonExistentUser() {
+    void shouldThrowUUserNotFoundExceptionForNonExistentUser() {
         // Arrange
         when(userRepository.findByUsernameOrEmail(TEST_USERNAME, TEST_USERNAME)).thenReturn(Optional.empty());
 
         // Act & Assert
-        UsernameNotFoundException exception = assertThrows(UsernameNotFoundException.class,
+        UserNotFoundException exception = assertThrows(UserNotFoundException.class,
                 () -> authenticationService.loadUserByUsername(TEST_USERNAME));
         assertThat(exception.getMessage()).isEqualTo("User not found with username or email: " + TEST_USERNAME);
         verify(userRepository).findByUsernameOrEmail(TEST_USERNAME, TEST_USERNAME);

@@ -3,6 +3,7 @@ package com.wojtasj.aichatbridge.service;
 import com.wojtasj.aichatbridge.entity.UserEntity;
 import com.wojtasj.aichatbridge.exception.AuthenticationException;
 import com.wojtasj.aichatbridge.exception.UserAlreadyExistsException;
+import com.wojtasj.aichatbridge.exception.UserNotFoundException;
 import com.wojtasj.aichatbridge.repository.UserRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -61,7 +62,7 @@ public class UserServiceImpl implements UserService {
      * Updates the email for a user after verifying that the new email is not already in use.
      * @param username the username of the user
      * @param newEmail the new email address
-     * @throws AuthenticationException if the user is not found
+     * @throws UserNotFoundException if the user is not found
      * @throws UserAlreadyExistsException if the new email is already in use
      * @since 1.0
      */
@@ -69,7 +70,7 @@ public class UserServiceImpl implements UserService {
     public void updateEmail(String username, String newEmail) {
         log.info("Updating email for user: {}", username);
         UserEntity user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new AuthenticationException("User not found with username: " + username));
+                .orElseThrow(() -> new UserNotFoundException("User not found with username: " + username));
 
         if (userRepository.findByEmail(newEmail).isPresent()) {
             log.error("Email already in use: {}", newEmail);
@@ -86,14 +87,14 @@ public class UserServiceImpl implements UserService {
      * The provided API key is saved to the database and encrypted using ApiKeyConverter.
      * @param username the username of the user
      * @param apiKey the new OpenAI API key provided by the user
-     * @throws AuthenticationException if the user is not found
+     * @throws UserNotFoundException if the user is not found
      * @since 1.0
      */
     @Override
     public void updateApiKey(String username, String apiKey) {
         log.info("Updating OpenAI API key for user: {}", username);
         UserEntity user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new AuthenticationException("User not found with username: " + username));
+                .orElseThrow(() -> new UserNotFoundException("User not found with username: " + username));
 
         user.setApiKey(apiKey);
         userRepository.save(user);
@@ -104,14 +105,14 @@ public class UserServiceImpl implements UserService {
      * Updates the maximum tokens for a user.
      * @param username the username of the user
      * @param maxTokens the new max tokens value
-     * @throws AuthenticationException if the user is not found
+     * @throws UserNotFoundException if the user is not found
      * @since 1.0
      */
     @Override
     public void updateMaxTokens(String username, Integer maxTokens) {
         log.info("Updating max tokens for user: {}", username);
         UserEntity user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new AuthenticationException("User not found with username: " + username));
+                .orElseThrow(() -> new UserNotFoundException("User not found with username: " + username));
 
         user.setMaxTokens(maxTokens);
         userRepository.save(user);
@@ -122,14 +123,14 @@ public class UserServiceImpl implements UserService {
      * Updates the model for a user.
      * @param username the username of the user
      * @param model the new model
-     * @throws AuthenticationException if the user is not found
+     * @throws UserNotFoundException if the user is not found
      * @since 1.0
      */
     @Override
     public void updateModel(String username, String model) {
         log.info("Updating model for user: {}", username);
         UserEntity user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new AuthenticationException("User not found with username: " + username));
+                .orElseThrow(() -> new UserNotFoundException("User not found with username: " + username));
 
         user.setModel(model);
         userRepository.save(user);
@@ -139,14 +140,14 @@ public class UserServiceImpl implements UserService {
     /**
      * Deletes a user's account and associated refresh tokens.
      * @param username the username of the user
-     * @throws AuthenticationException if the user is not found
+     * @throws UserNotFoundException if the user is not found
      * @since 1.0
      */
     @Override
     public void deleteAccount(String username) {
         log.info("Deleting account for user: {}", username);
         UserEntity user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new AuthenticationException("User not found with username: " + username));
+                .orElseThrow(() -> new UserNotFoundException("User not found with username: " + username));
 
         refreshTokenService.deleteByUser(user);
         userRepository.delete(user);
@@ -157,7 +158,7 @@ public class UserServiceImpl implements UserService {
      * Finds a user by username.
      * @param username the username to search for
      * @return the UserEntity
-     * @throws AuthenticationException if the user is not found
+     * @throws UserNotFoundException if the user is not found
      * @since 1.0
      */
     @Override
@@ -165,6 +166,6 @@ public class UserServiceImpl implements UserService {
     public UserEntity findByUsername(String username) {
         log.info("Finding user by username: {}", username);
         return userRepository.findByUsername(username)
-                .orElseThrow(() -> new AuthenticationException("User not found with username: " + username));
+                .orElseThrow(() -> new UserNotFoundException("User not found with username: " + username));
     }
 }
